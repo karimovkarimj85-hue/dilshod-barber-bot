@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.db
+*.log
+cloudflared.exe
+ngrok.exe
+cf_tunnel.log
+start.ps1
+requirements_booking.txt
+.env
