@@ -274,8 +274,15 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram && Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+const tg = window.Telegram?.WebApp;
+
+if (!tg || !tg.initData) {
+  document.body.innerHTML = "<h3>Откройте приложение через кнопку в Telegram</h3>";
+  throw new Error("initData is empty");
+}
+
+tg.ready();
+tg.expand();
 
 const API = (() => {
   const p = new URLSearchParams(location.search).get('api');
@@ -283,7 +290,7 @@ const API = (() => {
   return location.origin;
 })();
 
-const initData = tg ? tg.initData : '';
+const initData = tg.initData;
 
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MO = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
@@ -304,9 +311,17 @@ function toast(msg, ok = true) {
 
 async function api(path, opts = {}) {
   const headers = {'Content-Type': 'application/json'};
-  if (initData) headers['X-Init-Data'] = initData;
+  const method = (opts.method || 'GET').toUpperCase();
+  const nextOpts = {...opts};
+  if (method !== 'GET' && method !== 'HEAD') {
+    let dataObj = {};
+    if (typeof nextOpts.body === 'string' && nextOpts.body) {
+      try { dataObj = JSON.parse(nextOpts.body); } catch(e) { dataObj = {}; }
+    }
+    nextOpts.body = JSON.stringify({initData, ...dataObj});
+  }
   try {
-    const r = await fetch(API + path, {...opts, headers});
+    const r = await fetch(API + path, {...nextOpts, headers});
     const data = await r.json();
     if (data.ok === false) {
       if (data.error === 'missing_init_data')
@@ -430,7 +445,7 @@ async function loadMyBookings() {
   const empty = document.getElementById('bookings-empty');
   list.innerHTML = '<div class="loader"></div>';
   empty.style.display = 'none';
-  const data = await api('/api/my-bookings');
+  const data = await api('/api/my-bookings', {method:'POST', body: JSON.stringify({})});
   if (!data) { list.innerHTML = '<div class="empty">Не удалось загрузить</div>'; return; }
   list.innerHTML = '';
   const bookings = data.bookings || [];

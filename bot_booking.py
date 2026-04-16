@@ -282,8 +282,17 @@ def validate_init_data(init_data_str, detail=False):
     except Exception:
         return (None, "bad_user_json") if detail else None
 
-def get_user_from_request(request):
-    return validate_init_data(request.headers.get("X-Init-Data", ""))
+async def get_user_from_request(request):
+    init_data = request.headers.get("X-Init-Data", "")
+    if not init_data:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        init_data = (body or {}).get("initData", "")
+    if not init_data:
+        return None
+    return validate_init_data(init_data)
 
 def require_admin(user):
     return user and user.get("id") in CONFIG["ADMIN_IDS"]
@@ -340,7 +349,7 @@ async def api_schedule(req):
     return web.json_response({"ok": True, "date": ds, "slots": day_slots(ds)})
 
 async def api_book(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     body = await req.json()
@@ -353,7 +362,7 @@ async def api_book(req):
     return web.json_response({"ok": True, "booking_id": bid})
 
 async def api_my_bookings(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     bks = user_bookings(user["id"])
@@ -362,7 +371,7 @@ async def api_my_bookings(req):
     return web.json_response({"ok": True, "bookings": bks})
 
 async def api_cancel(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     body = await req.json()
@@ -378,7 +387,7 @@ async def api_cancel(req):
     return web.json_response({"ok": True})
 
 async def api_reschedule(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     body = await req.json()
@@ -398,7 +407,7 @@ async def api_reschedule(req):
 
 # admin API
 async def api_admin_bookings(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
@@ -407,7 +416,7 @@ async def api_admin_bookings(req):
     return web.json_response({"ok": True, "bookings": all_bookings_date(ds), "slots": day_slots(ds)})
 
 async def api_admin_cancel(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
@@ -420,7 +429,7 @@ async def api_admin_cancel(req):
     return web.json_response({"ok": True})
 
 async def api_admin_block(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
@@ -430,7 +439,7 @@ async def api_admin_block(req):
     return web.json_response({"ok": True})
 
 async def api_admin_unblock(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
@@ -440,7 +449,7 @@ async def api_admin_unblock(req):
     return web.json_response({"ok": True})
 
 async def api_admin_stats(req):
-    user = get_user_from_request(req)
+    user = await get_user_from_request(req)
     if not user:
         return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
@@ -464,6 +473,7 @@ def setup_routes(app):
     app.router.add_get("/api/schedule", api_schedule)
     app.router.add_post("/api/book", api_book)
     app.router.add_get("/api/my-bookings", api_my_bookings)
+    app.router.add_post("/api/my-bookings", api_my_bookings)
     app.router.add_post("/api/cancel", api_cancel)
     app.router.add_post("/api/reschedule", api_reschedule)
     app.router.add_get("/api/admin/bookings", api_admin_bookings)
@@ -572,6 +582,7 @@ def admin_web_kb():
         )],
     ])
 
+@dp.message(Command("start"))
 @dp.message(CommandStart())
 async def cmd_start(msg: Message):
     ensure_user(msg.from_user.id, msg.from_user.username or "", msg.from_user.first_name or "")
