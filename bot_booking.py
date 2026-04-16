@@ -565,12 +565,16 @@ def admin_url():
 CLIENT_BOOKING_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/index.html"
 
 def main_kb():
-    buttons = [[KeyboardButton(
-        text="✂️ Записаться на стрижку",
-        web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
-    )]]
-    buttons.append([KeyboardButton(text="📋 Мои записи"), KeyboardButton(text="ℹ️ О мастере")])
+    buttons = [[KeyboardButton(text="📋 Мои записи"), KeyboardButton(text="ℹ️ О мастере")]]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+def booking_inline_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="✂️ Записаться на стрижку",
+            web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
+        )],
+    ])
 
 ADMIN_PANEL_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/admin.html"
 
@@ -595,7 +599,8 @@ async def cmd_start(msg: Message):
         f"📅 Пн–Сб, {CONFIG['WORK_START']}:00–{CONFIG['WORK_END']}:00\n\n"
         f"Нажмите кнопку ниже, чтобы записаться 👇"
     )
-    await msg.answer(text, reply_markup=main_kb())
+    await msg.answer(text, reply_markup=booking_inline_kb())
+    await msg.answer("Меню:", reply_markup=main_kb())
     if msg.from_user.id in CONFIG["ADMIN_IDS"]:
         await msg.answer(
             "👑 Вы администратор. Откройте панель:",
