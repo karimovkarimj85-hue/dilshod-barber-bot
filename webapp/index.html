@@ -366,6 +366,8 @@ async function loadCalendar(targetCal = 'cal-scroll', onSelect = null) {
 async function loadSlots(dateStr) {
   selectedDate = dateStr;
   selectedTime = null;
+  const now = new Date();
+  const today = new Date().toISOString().slice(0, 10);
   const grid = document.getElementById('slots-grid');
   const title = document.getElementById('slots-title');
   const legend = document.getElementById('slots-legend');
@@ -388,9 +390,14 @@ async function loadSlots(dateStr) {
   let hasFree = false;
   slots.forEach(s => {
     const el = document.createElement('div');
-    el.className = 'slot ' + s.status;
+    let status = s.status;
+    if (selectedDate === today) {
+      const slotDateTime = new Date(`${selectedDate}T${s.time}`);
+      if (slotDateTime < now) status = 'past';
+    }
+    el.className = 'slot ' + status;
     el.textContent = s.time;
-    if (s.status === 'free') {
+    if (status === 'free') {
       hasFree = true;
       el.onclick = () => {
         grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
@@ -422,6 +429,17 @@ async function submitBooking() {
   const phone = document.getElementById('inp-phone').value.trim();
   if (!name) { toast('Укажите имя', false); return; }
   if (!phone || phone.length < 9) { toast('Укажите номер телефона', false); return; }
+
+  const now = new Date();
+  const today = new Date().toISOString().slice(0, 10);
+  if (selectedDate === today) {
+    const slotDateTime = new Date(`${selectedDate}T${selectedTime}`);
+    if (slotDateTime < now) {
+      alert("Это время уже прошло");
+      return;
+    }
+  }
+
   const btn = document.getElementById('btn-confirm');
   btn.disabled = true; btn.textContent = 'Записываем...';
   try {
