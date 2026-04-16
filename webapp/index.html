@@ -6,6 +6,7 @@
 <title>Дильшод — Запись</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#050505;--surface:#0c0c0c;--card:#111;--card2:#161616;
@@ -42,16 +43,18 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
   background:var(--green);border-radius:50%;border:3px solid var(--bg);
   box-shadow:0 0 8px rgba(52,211,153,.5)}
 
-/* ── Hero ── */
-.hero{text-align:center;padding:32px 0 20px}
-.hero h1{font-size:26px;font-weight:800;letter-spacing:-.5px;
-  background:linear-gradient(135deg,var(--text) 30%,var(--accent2));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero .sub{color:var(--dim);font-size:14px;margin-top:4px;font-weight:500}
-.hero .tags{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
-.tag{background:var(--card2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border:1px solid var(--border2);border-radius:100px;padding:8px 16px;
-  font-size:12px;font-weight:500;color:var(--text2);transition:all .2s}
+/* ── Hero (luxury) ── */
+.hero{text-align:center;padding:34px 0 22px}
+.hero h1{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:700;letter-spacing:4px;
+  text-transform:uppercase;
+  background:linear-gradient(135deg,var(--accent) 0%, #ffffff 60%);
+  background-clip:text;-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent}
+.hero .sub{color:rgba(255,255,255,.65);font-size:11px;margin-top:10px;font-weight:600;
+  text-transform:uppercase;letter-spacing:6px}
+.hero .meta{margin-top:16px;color:rgba(255,255,255,.70);font-size:12px;letter-spacing:2px}
+.hero .meta span{white-space:nowrap}
+.hero .meta .dot{opacity:.35;margin:0 10px}
 
 /* ── Buttons ── */
 .btn{display:flex;width:100%;padding:16px 24px;border:none;border-radius:var(--r);
@@ -72,8 +75,18 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 .btn+.btn{margin-top:12px}
 
 /* ── Section ── */
-.section-title{font-size:16px;font-weight:700;margin:24px 0 12px;
-  display:flex;align-items:center;gap:8px;letter-spacing:-.2px}
+.section-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;margin:26px 0 12px;
+  display:flex;align-items:center;letter-spacing:1px}
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 2px;
+  background: var(--accent);
+  margin-right: 10px;
+  vertical-align: middle;
+  box-shadow: 0 0 18px rgba(201,169,110,.25);
+}
 
 /* ── Calendar ── */
 .cal-scroll{display:flex;gap:10px;overflow-x:auto;padding:4px 0 12px;
@@ -98,11 +111,16 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 .slot{padding:16px 0;border-radius:var(--r);text-align:center;font-size:14px;font-weight:700;
   border:1px solid var(--border);cursor:pointer;transition:all .25s;box-shadow:var(--shadow)}
 .slot:active{transform:scale(.95)}
-.slot.free{background:var(--card2);color:var(--green);border-color:rgba(52,211,153,.15)}
+.slot.free{background:rgba(16,16,16,.65);color:rgba(255,255,255,.86);border-color:rgba(201,169,110,.30)}
+.slot.free:hover{box-shadow:0 0 22px rgba(201,169,110,.16), var(--shadow)}
 .slot.free.sel{background:linear-gradient(135deg,var(--accent),#a88542);color:var(--bg);
   border-color:var(--accent);box-shadow:0 0 24px rgba(201,169,110,.2)}
-.slot.booked{background:var(--red-dim);color:var(--red);border-color:rgba(248,113,113,.15);
-  pointer-events:none;cursor:default}
+.slot.booked{opacity:.35;pointer-events:none;cursor:default}
+.btn-primary.lux{
+  letter-spacing:2px;
+  text-transform:uppercase;
+  font-size:13px;
+}
 .slot.past,.slot.blocked{background:var(--card);color:var(--dim2);
   border-color:var(--border);pointer-events:none;cursor:default}
 
@@ -177,10 +195,24 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
   border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.success-icon{width:80px;height:80px;border-radius:50%;
-  background:linear-gradient(135deg,var(--green),#059669);
+.success-icon{width:92px;height:92px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%, rgba(201,169,110,.25), rgba(0,0,0,0) 55%),
+             linear-gradient(145deg,#0f0f0f,#070707);
+  border:1px solid rgba(201,169,110,.25);
   display:flex;align-items:center;justify-content:center;
-  font-size:36px;margin:0 auto 20px;box-shadow:0 0 40px rgba(52,211,153,.2)}
+  margin:0 auto 22px;box-shadow:0 0 40px rgba(201,169,110,.12)}
+.checkmark{width:52px;height:52px}
+.checkmark path{
+  stroke: var(--accent);
+  stroke-width: 6;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: draw 650ms cubic-bezier(.16,1,.3,1) forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
 
 </style>
 </head>
@@ -197,16 +229,16 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
       <div class="avatar-badge"></div>
     </div>
     <h1>Дильшод</h1>
-    <div class="sub">Барбер · Опыт более 5 лет</div>
-    <div class="tags">
-      <span class="tag">✂️ Стрижка</span>
-      <span class="tag">💰 60 000 сум</span>
-      <span class="tag">⏱ ~1 час</span>
+    <div class="sub">барбер</div>
+    <div class="meta">
+      <span>Стрижка</span><span class="dot">·</span>
+      <span>60 000 сум</span><span class="dot">·</span>
+      <span>~1 час</span>
     </div>
   </div>
   <div style="margin-top:28px">
-    <button class="btn btn-primary" id="btn-book" onclick="showScreen('s-calendar')">✂️ Записаться на стрижку</button>
-    <button class="btn btn-outline" id="btn-my" onclick="loadMyBookings()">📋 Мои записи</button>
+    <button class="btn btn-primary" id="btn-book" onclick="showScreen('s-calendar')">Записаться</button>
+    <button class="btn btn-outline" id="btn-my" onclick="loadMyBookings()">Мои записи</button>
   </div>
   <div class="info-bar">
     📅 Пн–Сб, 11:00–20:00 &nbsp;·&nbsp; 📞 <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
@@ -216,9 +248,9 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 <!-- CALENDAR -->
 <div id="s-calendar" class="screen">
   <div class="back-row" onclick="showScreen('s-home')">← Назад</div>
-  <div class="section-title">📅 Выберите день</div>
+  <div class="section-title">Выберите день</div>
   <div class="cal-scroll" id="cal-scroll"></div>
-  <div class="section-title" id="slots-title" style="display:none">⏰ Выберите время</div>
+  <div class="section-title" id="slots-title" style="display:none">Выберите время</div>
   <div class="legend" id="slots-legend" style="display:none">
     <span class="l-free">свободно</span>
     <span class="l-busy">занято</span>
@@ -231,7 +263,7 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 <!-- CONFIRM -->
 <div id="s-confirm" class="screen">
   <div class="back-row" onclick="showScreen('s-calendar')">← Назад</div>
-  <div class="section-title">📋 Подтверждение записи</div>
+  <div class="section-title">Подтверждение записи</div>
   <div class="summary" id="confirm-summary"></div>
   <div class="form-group">
     <label>Ваше имя</label>
@@ -241,13 +273,17 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
     <label>Телефон</label>
     <input type="tel" id="inp-phone" placeholder="+998 __ ___ __ __">
   </div>
-  <button class="btn btn-primary" id="btn-confirm" onclick="submitBooking()">Подтвердить запись</button>
+  <button class="btn btn-primary lux" id="btn-confirm" onclick="submitBooking()">Подтвердить</button>
 </div>
 
 <!-- SUCCESS -->
 <div id="s-success" class="screen">
   <div style="text-align:center;padding:48px 0">
-    <div class="success-icon">✓</div>
+    <div class="success-icon">
+      <svg class="checkmark" viewBox="0 0 52 52" aria-hidden="true">
+        <path d="M14 27.5 L23 36.5 L39 16.5"></path>
+      </svg>
+    </div>
     <h2 style="font-size:22px;font-weight:800">Вы записаны!</h2>
     <p style="color:var(--dim);margin-top:10px;font-size:14px;line-height:1.5" id="success-info"></p>
     <button class="btn btn-outline" style="margin-top:28px" onclick="showScreen('s-home')">На главную</button>
@@ -257,7 +293,7 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 <!-- MY BOOKINGS -->
 <div id="s-bookings" class="screen">
   <div class="back-row" onclick="showScreen('s-home')">← Назад</div>
-  <div class="section-title">📋 Мои записи</div>
+  <div class="section-title">Мои записи</div>
   <div id="bookings-list"></div>
   <div id="bookings-empty" class="empty" style="display:none">У вас пока нет записей</div>
 </div>
@@ -265,9 +301,9 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 <!-- RESCHEDULE -->
 <div id="s-resched" class="screen">
   <div class="back-row" onclick="loadMyBookings()">← Назад</div>
-  <div class="section-title">🔄 Перенос записи</div>
+  <div class="section-title">Перенос записи</div>
   <div class="cal-scroll" id="resched-cal"></div>
-  <div class="section-title" id="resched-slots-title" style="display:none">⏰ Новое время</div>
+  <div class="section-title" id="resched-slots-title" style="display:none">Новое время</div>
   <div class="slots-grid" id="resched-slots"></div>
 </div>
 

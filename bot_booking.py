@@ -141,6 +141,22 @@ def _blocked(date_str):
             return {"ALL"}
     return s
 
+def _time_to_min(t: str) -> int:
+    hh, mm = [int(x) for x in t.split(":")]
+    return hh * 60 + mm
+
+def _conflicts(t_min: int, booked_times, duration: int) -> bool:
+    slot_end = t_min + duration
+    for bt in booked_times:
+        try:
+            b_start = _time_to_min(bt)
+        except Exception:
+            continue
+        b_end = b_start + duration
+        if t_min < b_end and slot_end > b_start:
+            return True
+    return False
+
 def day_slots(date_str):
     d = datetime.strptime(date_str, "%Y-%m-%d").date()
     if d.weekday() in CONFIG["DAYS_OFF"]:
@@ -162,7 +178,7 @@ def day_slots(date_str):
             st = "past"
         elif t in bl:
             st = "blocked"
-        elif t in bk:
+        elif _conflicts(m, bk, duration):
             st = "booked"
         else:
             st = "free"
@@ -184,7 +200,8 @@ def calendar_data():
     return days
 
 def make_booking(uid, bdate, btime, name="", phone=""):
-    if btime in _booked(bdate) or btime in _blocked(bdate):
+    bk = _booked(bdate)
+    if _conflicts(_time_to_min(btime), bk, max(1, int(CONFIG.get("DURATION", 60)))) or btime in _blocked(bdate):
         return None
     d = datetime.strptime(bdate, "%Y-%m-%d").date()
     if d.weekday() in CONFIG["DAYS_OFF"]:
@@ -603,7 +620,7 @@ def booking_inline_kb():
 def my_bookings_inline_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="✂️ Мои записи",
+            text="📋 Мои записи",
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_MY_URL),
         )],
     ])
@@ -615,7 +632,7 @@ def client_inline_kb():
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
         )],
         [InlineKeyboardButton(
-            text="✂️ Мои записи",
+            text="📋 Мои записи",
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_MY_URL),
         )],
     ])
@@ -666,30 +683,7 @@ async def cmd_about(msg: Message):
 
 @dp.message(F.text == "📋 Мои записи")
 async def cmd_my(msg: Message):
-    bks = user_bookings(msg.from_user.id)
-    if not bks:
-        await msg.answer("У вас пока нет активных записей.")
-        return
-    lines = ["📋 <b>Ваши записи:</b>\n"]
-    for b in bks:
-        d = datetime.strptime(b["book_date"], "%Y-%m-%d").date()
-        can = "✅" if can_modify(b) else "🔒"
-        lines.append(
-            f"• {d.day} {RU_MO[d.month]} ({RU_WD[d.weekday()]}) <b>{b['book_time']}</b> {can}"
-        )
-    lines.append(
-        f"\n✅ = можно отменить/перенести\n"
-        f"🔒 = менее {CONFIG['MIN_CANCEL_H']}ч — позвоните мастеру:\n"
-        f"📞 {CONFIG['BARBER_PHONE']}"
-    )
-    rows = []
-    for b in bks:
-        if can_modify(b):
-            rows.append([
-                InlineKeyboardButton(text=f"❌ Отменить #{b['id']}", callback_data=f"cancel:{b['id']}"),
-            ])
-    await msg.answer("\n".join(lines),
-                     reply_markup=InlineKeyboardMarkup(inline_keyboard=rows) if rows else None)
+    await msg.answer("Откройте мини‑приложение, чтобы посмотреть записи.", reply_markup=my_bookings_inline_kb())
 
 @dp.callback_query(F.data.startswith("cancel:"))
 async def cb_cancel(cb: CallbackQuery):
