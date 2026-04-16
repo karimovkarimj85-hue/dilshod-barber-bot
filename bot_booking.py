@@ -238,7 +238,8 @@ def get_booking(bid):
 def user_bookings(uid):
     with get_db() as c:
         c.execute(
-            "SELECT * FROM bookings WHERE user_id=%s AND status='confirmed' "
+            "SELECT id, user_id, book_date, book_time, name, phone, status, "
+            "created_at::text FROM bookings WHERE user_id=%s AND status='confirmed' "
             "AND book_date>=%s ORDER BY book_date,book_time",
             (uid, date.today().isoformat()))
         rows = c.fetchall()
@@ -255,8 +256,9 @@ def can_modify(b):
 def all_bookings_date(ds):
     with get_db() as c:
         c.execute(
-            "SELECT b.*, u.username, u.first_name AS ufn FROM bookings b "
-            "LEFT JOIN users u ON u.id=b.user_id "
+            "SELECT b.id, b.user_id, b.book_date, b.book_time, b.name, b.phone, "
+            "b.status, b.created_at::text, u.username, u.first_name AS ufn "
+            "FROM bookings b LEFT JOIN users u ON u.id=b.user_id "
             "WHERE b.book_date=%s AND b.status='confirmed' ORDER BY b.book_time",
             (ds,))
         rows = c.fetchall()
