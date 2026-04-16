@@ -354,16 +354,24 @@ async function api(path, opts = {}) {
   if (method !== 'GET' && method !== 'HEAD') {
     let dataObj = {};
     if (typeof nextOpts.body === 'string' && nextOpts.body) {
-      try { dataObj = JSON.parse(nextOpts.body); } catch(e) { dataObj = {}; }
+      try { dataObj = JSON.parse(nextOpts.body); } catch(e) {}
     }
     nextOpts.body = JSON.stringify({initData, ...dataObj});
   }
   try {
     const r = await fetch(API + path, {...nextOpts, headers});
+    if (!r.ok) {
+      console.error('HTTP error', r.status, path);
+      return null;
+    }
     const data = await r.json();
-    if (data.ok === false) return null;
+    if (data.ok === false) {
+      console.error('API error', data.error, path);
+      return null;
+    }
     return data;
   } catch(e) {
+    console.error('Fetch failed', path, e);
     return null;
   }
 }

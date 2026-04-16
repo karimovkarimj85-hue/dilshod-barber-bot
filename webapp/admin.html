@@ -170,15 +170,26 @@ function showError(code) {
 }
 
 async function api(path, opts = {}) {
-  const headers = {'Content-Type': 'application/json'};
-  if (initData) headers['X-Init-Data'] = initData;
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Init-Data': initData
+  };
   try {
     const r = await fetch(API + path, {...opts, headers});
+    if (!r.ok) {
+      console.error('HTTP error', r.status, path);
+      showError('network_error');
+      return null;
+    }
     const data = await r.json();
-    if (!data.ok) { showError(data.error || 'unknown'); return null; }
+    if (!data.ok) {
+      console.error('API error', data.error, path);
+      showError(data.error || 'unknown');
+      return null;
+    }
     return data;
   } catch(e) {
-    console.error(e);
+    console.error('Fetch failed', path, e);
     showError('network_error');
     return null;
   }

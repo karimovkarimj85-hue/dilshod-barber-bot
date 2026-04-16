@@ -320,14 +320,14 @@ def validate_init_data(init_data_str, detail=False):
         return (None, "bad_user_json") if detail else None
 
 async def get_user_from_request(request):
-    log.info(f"[AUTH] header_len={len(request.headers.get('X-Init-Data',''))}")
-    init_data = request.headers.get("X-Init-Data", "")
+    init_data = request.headers.get("X-Init-Data", "").strip()
     if not init_data:
         try:
             body = await request.json()
-            init_data = (body or {}).get("initData", "")
+            init_data = (body or {}).get("initData", "").strip()
         except Exception:
             init_data = ""
+    log.info(f"[AUTH] init_data_len={len(init_data)}")
     if not init_data:
         return None
     return validate_init_data(init_data)
