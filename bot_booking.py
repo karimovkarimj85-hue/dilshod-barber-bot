@@ -552,10 +552,13 @@ def client_url():
 def admin_url():
     return f"{_public_base_url()}/webapp/admin.html"
 
+CLIENT_BOOKING_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/index.html"
+
 def main_kb():
-    url = client_url()
-    buttons = [[KeyboardButton(text="✂️ Записаться на стрижку",
-                               web_app=WebAppInfo(url=url))]]
+    buttons = [[KeyboardButton(
+        text="✂️ Записаться на стрижку",
+        web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
+    )]]
     buttons.append([KeyboardButton(text="📋 Мои записи"), KeyboardButton(text="ℹ️ О мастере")])
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
