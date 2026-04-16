@@ -52,6 +52,7 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
   -webkit-text-fill-color:transparent}
 .hero .sub{color:rgba(255,255,255,.65);font-size:11px;margin-top:10px;font-weight:600;
   text-transform:uppercase;letter-spacing:6px}
+.hero .meta{margin-top:16px;color:var(--dim);font-size:12px;letter-spacing:3px;text-transform:uppercase}
 .hero .meta{margin-top:16px;color:rgba(255,255,255,.70);font-size:12px;letter-spacing:2px}
 .hero .meta span{white-space:nowrap}
 .hero .meta .dot{opacity:.35;margin:0 10px}
@@ -80,8 +81,8 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 .section-title::before {
   content: '';
   display: inline-block;
-  width: 20px;
-  height: 2px;
+  width: 18px;
+  height: 1px;
   background: var(--accent);
   margin-right: 10px;
   vertical-align: middle;
@@ -241,7 +242,7 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
     <button class="btn btn-outline" id="btn-my" onclick="loadMyBookings()">Мои записи</button>
   </div>
   <div class="info-bar">
-    📅 Пн–Сб, 11:00–20:00 &nbsp;·&nbsp; 📞 <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
+    Пн–Сб, 11:00–20:00 &nbsp;·&nbsp; <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
   </div>
 </div>
 
@@ -360,13 +361,7 @@ async function api(path, opts = {}) {
   try {
     const r = await fetch(API + path, {...nextOpts, headers});
     const data = await r.json();
-    if (data.ok === false) {
-      if (data.error === 'missing_init_data')
-        toast('Откройте приложение из кнопки в боте', false);
-      else if (data.error)
-        toast(data.error, false);
-      return null;
-    }
+    if (data.ok === false) return null;
     return data;
   } catch(e) {
     return null;
@@ -452,7 +447,7 @@ function goConfirm() {
   const dt = new Date(selectedDate + 'T00:00:00');
   const endH = parseInt(selectedTime) + 1;
   document.getElementById('confirm-summary').innerHTML =
-    `<div class="row"><span class="label">Услуга</span><span>✂️ Стрижка</span></div>` +
+    `<div class="row"><span class="label">Услуга</span><span>Стрижка</span></div>` +
     `<div class="row"><span class="label">Дата</span><span>${dt.getDate()} ${MO[dt.getMonth()]} (${WD[(dt.getDay()+6)%7]})</span></div>` +
     `<div class="row"><span class="label">Время</span><span>${selectedTime} – ${endH < 10 ? '0' : ''}${endH}:00</span></div>` +
     `<div class="row"><span class="label">Стоимость</span><span>60 000 сум</span></div>`;
@@ -500,26 +495,36 @@ async function loadMyBookings() {
   const empty = document.getElementById('bookings-empty');
   list.innerHTML = '<div class="loader"></div>';
   empty.style.display = 'none';
+
   const data = await api('/api/my-bookings', {method:'POST', body: JSON.stringify({})});
-  if (!data) { list.innerHTML = '<div class="empty">Не удалось загрузить</div>'; return; }
+
+  if (!data) {
+    list.innerHTML = '<div class="empty">Не удалось загрузить</div>';
+    return;
+  }
+
   list.innerHTML = '';
   const bookings = data.bookings || [];
-  if (!bookings.length) { empty.style.display = ''; return; }
+  if (!bookings.length) {
+    empty.style.display = '';
+    return;
+  }
+
   bookings.forEach(b => {
     const dt = new Date(b.book_date + 'T00:00:00');
     const card = document.createElement('div');
     card.className = 'booking-card';
     const endH = parseInt(b.book_time) + 1;
     const actionsHtml = b.can_cancel
-      ? `<div class="bc-actions">` +
-          `<button class="bc-btn cancel" onclick="cancelBooking(${b.id})">✕ Отменить</button>` +
-          `<button class="bc-btn move" onclick="startReschedule(${b.id})">↻ Перенести</button>` +
-        `</div>`
-      : `<div class="bc-locked">🔒 Менее 16ч — свяжитесь с мастером:<br>` +
-          `<a href="tel:+998971163161">📞 +998 97 116 31 61</a></div>`;
+      ? `<div class="bc-actions">
+           <button class="bc-btn cancel" onclick="cancelBooking(${b.id})">✕ Отменить</button>
+           <button class="bc-btn move" onclick="startReschedule(${b.id})">↻ Перенести</button>
+         </div>`
+      : `<div class="bc-locked">Менее 16ч — свяжитесь с мастером:<br>
+           <a href="tel:+998971163161">+998 97 116 31 61</a></div>`;
     card.innerHTML =
       `<div class="bc-date">${dt.getDate()} ${MO[dt.getMonth()]} (${WD[(dt.getDay()+6)%7]})</div>` +
-      `<div class="bc-time">${b.book_time} – ${endH < 10 ? '0' : ''}${endH}:00 · ✂️ Стрижка</div>` +
+      `<div class="bc-time">${b.book_time} – ${endH < 10 ? '0' : ''}${endH}:00</div>` +
       actionsHtml;
     list.appendChild(card);
   });

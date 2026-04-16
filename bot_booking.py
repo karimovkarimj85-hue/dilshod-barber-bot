@@ -320,13 +320,14 @@ def validate_init_data(init_data_str, detail=False):
         return (None, "bad_user_json") if detail else None
 
 async def get_user_from_request(request):
+    log.info(f"[AUTH] header_len={len(request.headers.get('X-Init-Data',''))}")
     init_data = request.headers.get("X-Init-Data", "")
     if not init_data:
         try:
             body = await request.json()
+            init_data = (body or {}).get("initData", "")
         except Exception:
-            body = {}
-        init_data = (body or {}).get("initData", "")
+            init_data = ""
     if not init_data:
         return None
     return validate_init_data(init_data)
@@ -606,7 +607,7 @@ CLIENT_BOOKING_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/inde
 CLIENT_BOOKING_WEBAPP_MY_URL = "https://dilshod-barber-bot.onrender.com/webapp/index.html?screen=bookings"
 
 def main_kb():
-    buttons = [[KeyboardButton(text="ℹ️ О мастере")]]
+    buttons = [[KeyboardButton(text="Мои записи"), KeyboardButton(text="О мастере")]]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
 def booking_inline_kb():
@@ -620,7 +621,7 @@ def booking_inline_kb():
 def my_bookings_inline_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="📋 Мои записи",
+            text="Мои записи",
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_MY_URL),
         )],
     ])
@@ -628,11 +629,11 @@ def my_bookings_inline_kb():
 def client_inline_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="✂️ Записаться на стрижку",
+            text="Записаться",
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
         )],
         [InlineKeyboardButton(
-            text="📋 Мои записи",
+            text="Мои записи",
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_MY_URL),
         )],
     ])
@@ -642,7 +643,7 @@ ADMIN_PANEL_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/admin.h
 def admin_web_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="Открыть админ панель",
+            text="Панель управления",
             web_app=WebAppInfo(url=ADMIN_PANEL_WEBAPP_URL),
         )],
     ])
@@ -653,12 +654,12 @@ async def cmd_start(msg: Message):
     ensure_user(msg.from_user.id, msg.from_user.username or "", msg.from_user.first_name or "")
     name = msg.from_user.first_name or "друг"
     text = (
-        f"✂️ <b>{CONFIG['BARBER_NAME']} — Барбер</b>\n\n"
-        f"👋 Привет, {name}!\n\n"
-        f"💈 {CONFIG['SERVICE']} — <b>{CONFIG['PRICE']:,} сум</b>\n"
-        f"⏱ ~{CONFIG['DURATION']} мин\n"
-        f"📅 Пн–Сб, {CONFIG['WORK_START']}:00–{CONFIG['WORK_END']}:00\n\n"
-        f"Нажмите кнопку ниже, чтобы записаться 👇"
+        f"<b>ДИЛЬШОД</b> · Барбер\n\n"
+        f"Привет, {name}!\n\n"
+        f"Стрижка — <b>{CONFIG['PRICE']:,} сум</b>\n"
+        f"Время — ~{CONFIG['DURATION']} мин\n"
+        f"Режим — Пн–Сб, {CONFIG['WORK_START']}:00–{CONFIG['WORK_END']}:00\n\n"
+        f"Нажмите кнопку ниже 👇"
     )
     await msg.answer(text, reply_markup=client_inline_kb())
     await msg.answer("Меню:", reply_markup=main_kb())
@@ -668,20 +669,21 @@ async def cmd_start(msg: Message):
             reply_markup=admin_web_kb(),
         )
 
-@dp.message(F.text == "ℹ️ О мастере")
+@dp.message(F.text == "О мастере")
 async def cmd_about(msg: Message):
     age = date.today().year - CONFIG["BARBER_YEAR"]
-    await msg.answer(
-        f"✂️ <b>{CONFIG['BARBER_NAME']}</b>\n\n"
-        f"🎂 {CONFIG['BARBER_YEAR']} г.р. ({age} лет)\n"
-        f"⭐ Опыт: {CONFIG['BARBER_EXP']}\n"
-        f"💈 {CONFIG['SERVICE']} — {CONFIG['PRICE']:,} сум\n"
-        f"⏱ ~{CONFIG['DURATION']} мин\n"
-        f"📅 Пн–Сб, {CONFIG['WORK_START']}:00–{CONFIG['WORK_END']}:00\n"
-        f"📞 {CONFIG['BARBER_PHONE']}\n"
+    text = (
+        f"<b>ДИЛЬШОД</b>\n\n"
+        f"Год рождения: {CONFIG['BARBER_YEAR']} ({age} лет)\n"
+        f"Опыт: {CONFIG['BARBER_EXP']}\n"
+        f"Услуга: Стрижка — {CONFIG['PRICE']:,} сум\n"
+        f"Длительность: ~{CONFIG['DURATION']} мин\n"
+        f"Режим: Пн–Сб, {CONFIG['WORK_START']}:00–{CONFIG['WORK_END']}:00\n"
+        f"Телефон: {CONFIG['BARBER_PHONE']}"
     )
+    await msg.answer(text)
 
-@dp.message(F.text == "📋 Мои записи")
+@dp.message(F.text == "Мои записи")
 async def cmd_my(msg: Message):
     await msg.answer("Откройте мини‑приложение, чтобы посмотреть записи.", reply_markup=my_bookings_inline_kb())
 

@@ -104,7 +104,7 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
 <body>
 
 <div id="s-main" class="screen active">
-  <h2>👑 Панель управления</h2>
+  <h2>Панель управления</h2>
 
   <div class="stats" id="stats-grid">
     <div class="stat-card"><div class="num" id="st-today">—</div><div class="lbl">Сегодня</div></div>
@@ -275,9 +275,9 @@ async function loadDayData() {
       const statusText = ({free:'Свободно',booked:'Занято',blocked:'Заблок.',past:'Прошло'})[s.status] || s.status;
       let actionHtml = '';
       if (s.status === 'free')
-        actionHtml = `<button class="block-btn" onclick="blockSlot('${selectedDate}','${s.time}')">🔒</button>`;
+        actionHtml = `<button class="block-btn" onclick="blockSlot('${selectedDate}','${s.time}')">Block</button>`;
       else if (s.status === 'blocked')
-        actionHtml = `<button class="unblock-btn" onclick="unblockSlot('${selectedDate}','${s.time}')">🔓</button>`;
+        actionHtml = `<button class="unblock-btn" onclick="unblockSlot('${selectedDate}','${s.time}')">Unblock</button>`;
       row.innerHTML =
         `<div class="sr-time">${s.time}</div>` +
         `<div class="sr-status ${s.status}">${statusText}</div>` +
