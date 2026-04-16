@@ -181,6 +181,7 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
   background:linear-gradient(135deg,var(--green),#059669);
   display:flex;align-items:center;justify-content:center;
   font-size:36px;margin:0 auto 20px;box-shadow:0 0 40px rgba(52,211,153,.2)}
+
 </style>
 </head>
 <body>
@@ -204,8 +205,8 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
     </div>
   </div>
   <div style="margin-top:28px">
-    <button class="btn btn-primary" onclick="showScreen('s-calendar')">✂️ Записаться на стрижку</button>
-    <button class="btn btn-outline" onclick="loadMyBookings()">📋 Мои записи</button>
+    <button class="btn btn-primary" id="btn-book" onclick="showScreen('s-calendar')">✂️ Записаться на стрижку</button>
+    <button class="btn btn-outline" id="btn-my" onclick="loadMyBookings()">📋 Мои записи</button>
   </div>
   <div class="info-bar">
     📅 Пн–Сб, 11:00–20:00 &nbsp;·&nbsp; 📞 <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
@@ -271,24 +272,18 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 </div>
 
 <div class="toast" id="toast"></div>
-<pre id="debug-box" style="display:none;position:fixed;bottom:60px;left:8px;right:8px;max-height:120px;overflow:auto;
-  background:#111;border:1px solid #333;border-radius:8px;padding:8px;font-size:10px;color:#0f0;z-index:1000;white-space:pre-wrap"></pre>
 
 <script>
 const tg = window.Telegram && Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const _params = new URLSearchParams(location.search);
-const DEBUG = _params.get('debug') === '1';
-
 const API = (() => {
-  const p = _params.get('api');
+  const p = new URLSearchParams(location.search).get('api');
   if (p) return p.replace(/\/+$/, '');
   return location.origin;
 })();
 
 const initData = tg ? tg.initData : '';
-let authOk = false;
 
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MO = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
@@ -307,67 +302,50 @@ function toast(msg, ok = true) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-function dbg(msg) {
-  if (!DEBUG) return;
-  const d = document.getElementById('debug-box');
-  if (d) { d.style.display = ''; d.textContent += msg + '\n'; }
-}
-
 async function api(path, opts = {}) {
   const headers = {'Content-Type': 'application/json'};
   if (initData) headers['X-Init-Data'] = initData;
-  const r = await fetch(API + path, {...opts, headers});
-  const data = await r.json();
-  if (r.status === 401 && data.error) {
-    if (data.error === 'missing_init_data')
-      toast('Откройте приложение из кнопки в боте', false);
-    else
-      toast('Ошибка авторизации: ' + data.error, false);
-  }
-  return data;
-}
-
-async function checkAuth() {
   try {
-    dbg('initData length: ' + initData.length);
-    dbg('API: ' + API);
-    const r = await api('/api/auth-check');
-    dbg('auth-check: ' + JSON.stringify(r));
-    if (r.ok) { authOk = true; return; }
-    if (r.error === 'missing_init_data' && !initData) {
-      dbg('No initData — app not opened from Telegram WebApp button');
+    const r = await fetch(API + path, {...opts, headers});
+    const data = await r.json();
+    if (data.ok === false) {
+      if (data.error === 'missing_init_data')
+        toast('Откройте приложение из кнопки в боте', false);
+      else if (data.error)
+        toast(data.error, false);
+      return null;
     }
-  } catch(e) { dbg('auth-check error: ' + e.message); }
+    return data;
+  } catch(e) {
+    return null;
+  }
 }
 
 async function loadCalendar(targetCal = 'cal-scroll', onSelect = null) {
   const el = document.getElementById(targetCal);
   el.innerHTML = '<div class="loader"></div>';
-  try {
-    const data = await api('/api/calendar');
-    el.innerHTML = '';
-    data.days.forEach(d => {
-      const dt = new Date(d.date + 'T00:00:00');
-      const card = document.createElement('div');
-      card.className = 'day-card' + (d.off ? ' off' : '');
-      card.innerHTML =
-        `<div class="wd">${WD[d.weekday]}</div>` +
-        `<div class="dd">${dt.getDate()}</div>` +
-        `<div class="mo">${MO[dt.getMonth()]}</div>` +
-        `<div class="free ${d.free > 0 ? 'has' : 'no'}">${d.off ? 'вых' : (d.free > 0 ? d.free + ' ок.' : '—')}</div>`;
-      if (!d.off && d.free > 0) {
-        card.onclick = () => {
-          el.querySelectorAll('.day-card').forEach(c => c.classList.remove('sel'));
-          card.classList.add('sel');
-          if (onSelect) onSelect(d.date);
-          else loadSlots(d.date);
-        };
-      }
-      el.appendChild(card);
-    });
-  } catch(e) {
-    el.innerHTML = '<div class="empty">Не удалось загрузить расписание</div>';
-  }
+  const data = await api('/api/calendar');
+  if (!data) { el.innerHTML = '<div class="empty">Не удалось загрузить расписание</div>'; return; }
+  el.innerHTML = '';
+  (data.days || []).forEach(d => {
+    const dt = new Date(d.date + 'T00:00:00');
+    const card = document.createElement('div');
+    card.className = 'day-card' + (d.off ? ' off' : '');
+    card.innerHTML =
+      `<div class="wd">${WD[d.weekday]}</div>` +
+      `<div class="dd">${dt.getDate()}</div>` +
+      `<div class="mo">${MO[dt.getMonth()]}</div>` +
+      `<div class="free ${d.free > 0 ? 'has' : 'no'}">${d.off ? 'вых' : (d.free > 0 ? d.free + ' ок.' : '—')}</div>`;
+    if (!d.off && d.free > 0) {
+      card.onclick = () => {
+        el.querySelectorAll('.day-card').forEach(c => c.classList.remove('sel'));
+        card.classList.add('sel');
+        if (onSelect) onSelect(d.date);
+        else loadSlots(d.date);
+      };
+    }
+    el.appendChild(card);
+  });
 }
 
 async function loadSlots(dateStr) {
@@ -382,30 +360,33 @@ async function loadSlots(dateStr) {
   legend.style.display = '';
   empty.style.display = 'none';
 
-  try {
-    const data = await api('/api/schedule?date=' + dateStr);
-    grid.innerHTML = '';
-    if (!data.slots.length) { empty.style.display = ''; title.style.display = 'none'; legend.style.display = 'none'; return; }
-    let hasFree = false;
-    data.slots.forEach(s => {
-      const el = document.createElement('div');
-      el.className = 'slot ' + s.status;
-      el.textContent = s.time;
-      if (s.status === 'free') {
-        hasFree = true;
-        el.onclick = () => {
-          grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
-          el.classList.add('sel');
-          selectedTime = s.time;
-          goConfirm();
-        };
-      }
-      grid.appendChild(el);
-    });
-    if (!hasFree) empty.style.display = '';
-  } catch(e) {
+  const data = await api('/api/schedule?date=' + dateStr);
+  if (!data) {
     grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Ошибка загрузки</div>';
+    title.style.display = 'none';
+    legend.style.display = 'none';
+    return;
   }
+  grid.innerHTML = '';
+  const slots = data.slots || [];
+  if (!slots.length) { empty.style.display = ''; title.style.display = 'none'; legend.style.display = 'none'; return; }
+  let hasFree = false;
+  slots.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'slot ' + s.status;
+    el.textContent = s.time;
+    if (s.status === 'free') {
+      hasFree = true;
+      el.onclick = () => {
+        grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
+        el.classList.add('sel');
+        selectedTime = s.time;
+        goConfirm();
+      };
+    }
+    grid.appendChild(el);
+  });
+  if (!hasFree) empty.style.display = '';
 }
 
 function goConfirm() {
@@ -429,19 +410,18 @@ async function submitBooking() {
   const btn = document.getElementById('btn-confirm');
   btn.disabled = true; btn.textContent = 'Записываем...';
   try {
+    let res;
     if (reschedulingId) {
-      const res = await api('/api/reschedule', {method:'POST',body:JSON.stringify({booking_id:reschedulingId,new_date:selectedDate,new_time:selectedTime})});
+      res = await api('/api/reschedule', {method:'POST',body:JSON.stringify({booking_id:reschedulingId,new_date:selectedDate,new_time:selectedTime})});
       reschedulingId = null;
-      if (!res.ok) { toast(res.error || 'Ошибка', false); return; }
     } else {
-      const res = await api('/api/book', {method:'POST',body:JSON.stringify({date:selectedDate,time:selectedTime,name,phone})});
-      if (!res.ok) { if (res.error !== 'missing_init_data') toast(res.error || 'Ошибка', false); return; }
+      res = await api('/api/book', {method:'POST',body:JSON.stringify({date:selectedDate,time:selectedTime,name,phone})});
     }
+    if (!res) return;
     const dt = new Date(selectedDate + 'T00:00:00');
     document.getElementById('success-info').textContent = `${dt.getDate()} ${MO[dt.getMonth()]} в ${selectedTime}`;
     showScreen('s-success');
-  } catch(e) { toast('Ошибка сети', false); }
-  finally { btn.disabled = false; btn.textContent = 'Подтвердить запись'; }
+  } finally { btn.disabled = false; btn.textContent = 'Подтвердить запись'; }
 }
 
 async function loadMyBookings() {
@@ -450,36 +430,35 @@ async function loadMyBookings() {
   const empty = document.getElementById('bookings-empty');
   list.innerHTML = '<div class="loader"></div>';
   empty.style.display = 'none';
-  try {
-    const data = await api('/api/my-bookings');
-    list.innerHTML = '';
-    if (!data.bookings || !data.bookings.length) { empty.style.display = ''; return; }
-    data.bookings.forEach(b => {
-      const dt = new Date(b.book_date + 'T00:00:00');
-      const card = document.createElement('div');
-      card.className = 'booking-card';
-      const endH = parseInt(b.book_time) + 1;
-      const actionsHtml = b.can_cancel
-        ? `<div class="bc-actions">` +
-            `<button class="bc-btn cancel" onclick="cancelBooking(${b.id})">✕ Отменить</button>` +
-            `<button class="bc-btn move" onclick="startReschedule(${b.id})">↻ Перенести</button>` +
-          `</div>`
-        : `<div class="bc-locked">🔒 Менее 16ч — свяжитесь с мастером:<br>` +
-            `<a href="tel:+998971163161">📞 +998 97 116 31 61</a></div>`;
-      card.innerHTML =
-        `<div class="bc-date">${dt.getDate()} ${MO[dt.getMonth()]} (${WD[(dt.getDay()+6)%7]})</div>` +
-        `<div class="bc-time">${b.book_time} – ${endH < 10 ? '0' : ''}${endH}:00 · ✂️ Стрижка</div>` +
-        actionsHtml;
-      list.appendChild(card);
-    });
-  } catch(e) { list.innerHTML = '<div class="empty">Ошибка загрузки</div>'; }
+  const data = await api('/api/my-bookings');
+  if (!data) { list.innerHTML = '<div class="empty">Не удалось загрузить</div>'; return; }
+  list.innerHTML = '';
+  const bookings = data.bookings || [];
+  if (!bookings.length) { empty.style.display = ''; return; }
+  bookings.forEach(b => {
+    const dt = new Date(b.book_date + 'T00:00:00');
+    const card = document.createElement('div');
+    card.className = 'booking-card';
+    const endH = parseInt(b.book_time) + 1;
+    const actionsHtml = b.can_cancel
+      ? `<div class="bc-actions">` +
+          `<button class="bc-btn cancel" onclick="cancelBooking(${b.id})">✕ Отменить</button>` +
+          `<button class="bc-btn move" onclick="startReschedule(${b.id})">↻ Перенести</button>` +
+        `</div>`
+      : `<div class="bc-locked">🔒 Менее 16ч — свяжитесь с мастером:<br>` +
+          `<a href="tel:+998971163161">📞 +998 97 116 31 61</a></div>`;
+    card.innerHTML =
+      `<div class="bc-date">${dt.getDate()} ${MO[dt.getMonth()]} (${WD[(dt.getDay()+6)%7]})</div>` +
+      `<div class="bc-time">${b.book_time} – ${endH < 10 ? '0' : ''}${endH}:00 · ✂️ Стрижка</div>` +
+      actionsHtml;
+    list.appendChild(card);
+  });
 }
 
 async function cancelBooking(bid) {
   if (!confirm('Отменить запись?')) return;
   const res = await api('/api/cancel', {method:'POST',body:JSON.stringify({booking_id:bid})});
-  if (res.ok) { toast('Запись отменена'); loadMyBookings(); }
-  else toast(res.error || 'Ошибка', false);
+  if (res) { toast('Запись отменена'); loadMyBookings(); }
 }
 
 function startReschedule(bid) {
@@ -494,30 +473,24 @@ async function loadReschedSlots(dateStr) {
   const title = document.getElementById('resched-slots-title');
   grid.innerHTML = '<div class="loader" style="grid-column:1/-1"></div>';
   title.style.display = '';
-  try {
-    const data = await api('/api/schedule?date=' + dateStr);
-    grid.innerHTML = '';
-    data.slots.forEach(s => {
-      const el = document.createElement('div');
-      el.className = 'slot ' + s.status;
-      el.textContent = s.time;
-      if (s.status === 'free') {
-        el.onclick = () => {
-          grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
-          el.classList.add('sel');
-          selectedTime = s.time;
-          goConfirm();
-        };
-      }
-      grid.appendChild(el);
-    });
-  } catch(e) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Ошибка</div>'; }
+  const data = await api('/api/schedule?date=' + dateStr);
+  if (!data) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Ошибка</div>'; return; }
+  grid.innerHTML = '';
+  (data.slots || []).forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'slot ' + s.status;
+    el.textContent = s.time;
+    if (s.status === 'free') {
+      el.onclick = () => {
+        grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
+        el.classList.add('sel');
+        selectedTime = s.time;
+        goConfirm();
+      };
+    }
+    grid.appendChild(el);
+  });
 }
-
-document.addEventListener('DOMContentLoaded', async () => {
-  await checkAuth();
-  if (_params.get('screen') === 'bookings') loadMyBookings();
-});
 
 showScreen('s-home');
 loadCalendar();

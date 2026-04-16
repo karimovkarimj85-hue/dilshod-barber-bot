@@ -29,7 +29,6 @@ html,body{min-height:100%;font-family:'SF Pro Display',-apple-system,BlinkMacSys
 h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:10px;
   letter-spacing:-.3px}
 
-/* ── Stats ── */
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
 .stat-card{background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);
   padding:16px;text-align:center;box-shadow:var(--shadow);transition:all .2s}
@@ -38,7 +37,6 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
   -webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .stat-card .lbl{font-size:12px;color:var(--dim);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 
-/* ── Calendar ── */
 .section-title{font-size:14px;font-weight:700;margin:20px 0 10px;color:var(--dim);
   text-transform:uppercase;letter-spacing:.5px}
 .cal-scroll{display:flex;gap:10px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
@@ -54,7 +52,6 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
 .day-card .dd{font-size:20px;font-weight:800;margin:2px 0}
 .day-card .mo{font-size:10px;color:var(--dim)}
 
-/* ── Tabs ── */
 .tabs{display:flex;gap:0;margin-bottom:18px;border-radius:var(--r);overflow:hidden;
   border:1px solid var(--border2);background:var(--card)}
 .tab{flex:1;padding:12px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;
@@ -62,7 +59,6 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
 .tab.active{background:linear-gradient(135deg,var(--accent),#a88542);color:var(--bg)}
 .tab:active{opacity:.7}
 
-/* ── Booking item ── */
 .booking-item{background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);
   padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;
   box-shadow:var(--shadow);transition:all .2s}
@@ -75,7 +71,6 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
 .bi-btn:active{transform:scale(.9)}
 .bi-btn.cancel{background:var(--red-dim);color:var(--red);border:1px solid rgba(248,113,113,.15)}
 
-/* ── Slot rows ── */
 .slot-row{display:grid;grid-template-columns:60px 1fr 64px;gap:10px;align-items:center;
   padding:12px 0;border-bottom:1px solid var(--border)}
 .slot-row:last-child{border-bottom:none}
@@ -103,6 +98,7 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
 .toast.show{transform:none;opacity:1}
 .toast.ok{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.2)}
 .toast.err{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+
 </style>
 </head>
 <body>
@@ -132,15 +128,23 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram && Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+const tg = window.Telegram?.WebApp;
+
+if (!tg || !tg.initData) {
+  document.body.innerHTML = "<h3>Откройте админку через Telegram</h3>";
+  throw new Error("No initData");
+}
+
+tg.ready();
+tg.expand();
+
+const initData = tg.initData;
 
 const API = (() => {
   const p = new URLSearchParams(location.search).get('api');
   if (p) return p.replace(/\/+$/, '');
   return location.origin;
 })();
-const initData = tg ? tg.initData : '';
 
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MO = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
@@ -152,17 +156,32 @@ function toast(msg, ok = true) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast ' + (ok ? 'ok' : 'err') + ' show';
-  setTimeout(() => t.classList.remove('show'), 3000);
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function showError(code) {
+  const map = {
+    missing_init_data: 'Откройте через бота /admin',
+    bad_hash: 'Ошибка токена',
+    not_admin: 'Нет доступа — только для администратора',
+    network_error: 'Ошибка сети'
+  };
+  toast(map[code] || 'Ошибка', false);
 }
 
 async function api(path, opts = {}) {
   const headers = {'Content-Type': 'application/json'};
   if (initData) headers['X-Init-Data'] = initData;
-  const r = await fetch(API + path, {...opts, headers});
-  const data = await r.json();
-  if (r.status === 401) toast('Авторизация: откройте из бота /admin', false);
-  if (r.status === 403) toast('Нет доступа — только для администратора', false);
-  return data;
+  try {
+    const r = await fetch(API + path, {...opts, headers});
+    const data = await r.json();
+    if (!data.ok) { showError(data.error || 'unknown'); return null; }
+    return data;
+  } catch(e) {
+    console.error(e);
+    showError('network_error');
+    return null;
+  }
 }
 
 function switchTab(tab) {
@@ -175,39 +194,39 @@ function switchTab(tab) {
 }
 
 async function loadStats() {
-  try {
-    const s = await api('/api/admin/stats');
-    document.getElementById('st-today').textContent = s.today;
-    document.getElementById('st-tomorrow').textContent = s.tomorrow;
-    document.getElementById('st-total').textContent = s.total;
-    document.getElementById('st-clients').textContent = s.clients;
-  } catch(e) {}
+  const s = await api('/api/admin/stats');
+  if (!s) return false;
+  document.getElementById('st-today').textContent = s.today;
+  document.getElementById('st-tomorrow').textContent = s.tomorrow;
+  document.getElementById('st-total').textContent = s.total;
+  document.getElementById('st-clients').textContent = s.clients;
+  return true;
 }
 
 async function loadCalendar() {
   const el = document.getElementById('admin-cal');
-  try {
-    const data = await api('/api/calendar');
-    el.innerHTML = '';
-    data.days.forEach(d => {
-      const dt = new Date(d.date + 'T00:00:00');
-      const card = document.createElement('div');
-      card.className = 'day-card' + (d.off ? ' off' : '') + (d.date === selectedDate ? ' sel' : '');
-      card.innerHTML =
-        `<div class="wd">${WD[d.weekday]}</div>` +
-        `<div class="dd">${dt.getDate()}</div>` +
-        `<div class="mo">${MO[dt.getMonth()]}</div>`;
-      if (!d.off) {
-        card.onclick = () => {
-          selectedDate = d.date;
-          el.querySelectorAll('.day-card').forEach(c => c.classList.remove('sel'));
-          card.classList.add('sel');
-          loadDayData();
-        };
-      }
-      el.appendChild(card);
-    });
-  } catch(e) { el.innerHTML = '<div class="empty">Ошибка</div>'; }
+  el.innerHTML = '<div class="loader"></div>';
+  const data = await api('/api/calendar');
+  if (!data) { el.innerHTML = '<div class="empty">Ошибка загрузки календаря</div>'; return; }
+  el.innerHTML = '';
+  (data.days || []).forEach(d => {
+    const dt = new Date(d.date + 'T00:00:00');
+    const card = document.createElement('div');
+    card.className = 'day-card' + (d.off ? ' off' : '') + (d.date === selectedDate ? ' sel' : '');
+    card.innerHTML =
+      `<div class="wd">${WD[d.weekday]}</div>` +
+      `<div class="dd">${dt.getDate()}</div>` +
+      `<div class="mo">${MO[dt.getMonth()]}</div>`;
+    if (!d.off) {
+      card.onclick = () => {
+        selectedDate = d.date;
+        el.querySelectorAll('.day-card').forEach(c => c.classList.remove('sel'));
+        card.classList.add('sel');
+        loadDayData();
+      };
+    }
+    el.appendChild(card);
+  });
 }
 
 async function loadDayData() {
@@ -216,70 +235,79 @@ async function loadDayData() {
   const slEl = document.getElementById('view-slots');
   bkEl.innerHTML = '<div class="loader"></div>';
   slEl.innerHTML = '<div class="loader"></div>';
-  try {
-    const data = await api('/api/admin/bookings?date=' + selectedDate);
-    bkEl.innerHTML = '';
-    if (!data.bookings.length) {
-      bkEl.innerHTML = '<div class="empty">Нет записей на этот день</div>';
-    } else {
-      data.bookings.forEach(b => {
-        const item = document.createElement('div');
-        item.className = 'booking-item';
-        item.innerHTML =
-          `<div class="bi-info">` +
-            `<div class="bi-time">${b.book_time}</div>` +
-            `<div class="bi-name">${b.name || b.ufn || '—'} ${b.username ? '@' + b.username : ''}</div>` +
-            `<div class="bi-phone">${b.phone || '—'}</div>` +
-          `</div>` +
-          `<div class="bi-actions">` +
-            `<button class="bi-btn cancel" onclick="adminCancel(${b.id})" title="Отменить">✕</button>` +
-          `</div>`;
-        bkEl.appendChild(item);
-      });
-    }
+
+  const data = await api('/api/admin/bookings?date=' + selectedDate);
+  if (!data) {
+    bkEl.innerHTML = '<div class="empty">Не удалось загрузить</div>';
     slEl.innerHTML = '';
-    if (!data.slots.length) {
-      slEl.innerHTML = '<div class="empty">Выходной</div>';
-    } else {
-      data.slots.forEach(s => {
-        const row = document.createElement('div');
-        row.className = 'slot-row';
-        const statusText = {free:'Свободно',booked:'Занято',blocked:'Заблок.',past:'Прошло'}[s.status] || s.status;
-        let actionHtml = '';
-        if (s.status === 'free')
-          actionHtml = `<button class="block-btn" onclick="blockSlot('${selectedDate}','${s.time}')">🔒</button>`;
-        else if (s.status === 'blocked')
-          actionHtml = `<button class="unblock-btn" onclick="unblockSlot('${selectedDate}','${s.time}')">🔓</button>`;
-        row.innerHTML =
-          `<div class="sr-time">${s.time}</div>` +
-          `<div class="sr-status ${s.status}">${statusText}</div>` +
-          `<div class="sr-action">${actionHtml}</div>`;
-        slEl.appendChild(row);
-      });
-    }
-  } catch(e) { bkEl.innerHTML = '<div class="empty">Ошибка загрузки</div>'; }
+    return;
+  }
+
+  bkEl.innerHTML = '';
+  const bookings = data.bookings || [];
+  if (!bookings.length) {
+    bkEl.innerHTML = '<div class="empty">Нет записей на этот день</div>';
+  } else {
+    bookings.forEach(b => {
+      const item = document.createElement('div');
+      item.className = 'booking-item';
+      item.innerHTML =
+        `<div class="bi-info">` +
+          `<div class="bi-time">${b.book_time}</div>` +
+          `<div class="bi-name">${b.name || b.ufn || '—'} ${b.username ? '@' + b.username : ''}</div>` +
+          `<div class="bi-phone">${b.phone || '—'}</div>` +
+        `</div>` +
+        `<div class="bi-actions">` +
+          `<button class="bi-btn cancel" onclick="adminCancel(${b.id})" title="Отменить">✕</button>` +
+        `</div>`;
+      bkEl.appendChild(item);
+    });
+  }
+
+  slEl.innerHTML = '';
+  const slots = data.slots || [];
+  if (!slots.length) {
+    slEl.innerHTML = '<div class="empty">Выходной</div>';
+  } else {
+    slots.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'slot-row';
+      const statusText = ({free:'Свободно',booked:'Занято',blocked:'Заблок.',past:'Прошло'})[s.status] || s.status;
+      let actionHtml = '';
+      if (s.status === 'free')
+        actionHtml = `<button class="block-btn" onclick="blockSlot('${selectedDate}','${s.time}')">🔒</button>`;
+      else if (s.status === 'blocked')
+        actionHtml = `<button class="unblock-btn" onclick="unblockSlot('${selectedDate}','${s.time}')">🔓</button>`;
+      row.innerHTML =
+        `<div class="sr-time">${s.time}</div>` +
+        `<div class="sr-status ${s.status}">${statusText}</div>` +
+        `<div class="sr-action">${actionHtml}</div>`;
+      slEl.appendChild(row);
+    });
+  }
 }
 
 async function adminCancel(bid) {
   if (!confirm('Отменить эту запись?')) return;
   const res = await api('/api/admin/cancel', {method:'POST',body:JSON.stringify({booking_id:bid})});
-  if (res.ok) { toast('Запись отменена'); loadDayData(); loadStats(); }
-  else toast('Ошибка', false);
+  if (res) { toast('Запись отменена'); loadDayData(); loadStats(); }
 }
 
 async function blockSlot(d, t) {
-  await api('/api/admin/block', {method:'POST',body:JSON.stringify({date:d,time:t})});
-  toast('Слот заблокирован'); loadDayData();
+  const res = await api('/api/admin/block', {method:'POST',body:JSON.stringify({date:d,time:t})});
+  if (res) { toast('Слот заблокирован'); loadDayData(); }
 }
 
 async function unblockSlot(d, t) {
-  await api('/api/admin/unblock', {method:'POST',body:JSON.stringify({date:d,time:t})});
-  toast('Слот разблокирован'); loadDayData();
+  const res = await api('/api/admin/unblock', {method:'POST',body:JSON.stringify({date:d,time:t})});
+  if (res) { toast('Слот разблокирован'); loadDayData(); }
 }
 
-loadStats();
-loadCalendar();
-loadDayData();
+(async () => {
+  loadCalendar();
+  const ok = await loadStats();
+  if (ok) loadDayData();
+})();
 </script>
 </body>
 </html>

@@ -36,9 +36,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 #  CONFIG
 # ═══════════════════════════════════════
 
+# Админ по умолчанию (Telegram user_id); дополнительные — через env ADMIN_IDS через запятую
+_DEFAULT_ADMIN_ID = 1125022050
+_ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", str(_DEFAULT_ADMIN_ID))
+
 CONFIG = {
     "BOT_TOKEN":   os.getenv("BOT_TOKEN", ""),
-    "ADMIN_IDS":   [int(x) for x in os.getenv("ADMIN_IDS", "1125022050").split(",")],
+    "ADMIN_IDS":   sorted({int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()} | {_DEFAULT_ADMIN_ID}),
     "CHANNEL_ID":  int(os.getenv("CHANNEL_ID", "-1003692525683")),
 
     "BARBER_NAME": "Дильшод",
@@ -57,7 +61,8 @@ CONFIG = {
     "MIN_CANCEL_H": 16,
 
     "API_PORT":    int(os.getenv("PORT", "8080")),
-    "API_URL":     os.getenv("RENDER_EXTERNAL_URL", ""),
+    "RENDER_EXTERNAL_URL": os.getenv("RENDER_EXTERNAL_URL", ""),
+    "API_URL":     os.getenv("RENDER_EXTERNAL_URL", "") or os.getenv("API_URL", ""),
 }
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -312,6 +317,7 @@ async def api_auth_check(req):
 
 async def api_config(req):
     return web.json_response({
+        "ok": True,
         "barber": CONFIG["BARBER_NAME"],
         "year": CONFIG["BARBER_YEAR"],
         "exp": CONFIG["BARBER_EXP"],
@@ -327,16 +333,16 @@ async def api_config(req):
     })
 
 async def api_calendar(req):
-    return web.json_response({"days": calendar_data()})
+    return web.json_response({"ok": True, "days": calendar_data()})
 
 async def api_schedule(req):
     ds = req.query.get("date", date.today().isoformat())
-    return web.json_response({"date": ds, "slots": day_slots(ds)})
+    return web.json_response({"ok": True, "date": ds, "slots": day_slots(ds)})
 
 async def api_book(req):
     user = get_user_from_request(req)
     if not user:
-        return web.json_response({"ok": False, "error": "Авторизация не пройдена"}, status=401)
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     body = await req.json()
     uid = user["id"]
     ensure_user(uid, user.get("username", ""), user.get("first_name", ""))
@@ -349,16 +355,16 @@ async def api_book(req):
 async def api_my_bookings(req):
     user = get_user_from_request(req)
     if not user:
-        return web.json_response({"ok": False}, status=401)
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     bks = user_bookings(user["id"])
     for b in bks:
         b["can_cancel"] = can_modify(b)
-    return web.json_response({"bookings": bks})
+    return web.json_response({"ok": True, "bookings": bks})
 
 async def api_cancel(req):
     user = get_user_from_request(req)
     if not user:
-        return web.json_response({"ok": False}, status=401)
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     body = await req.json()
     b = get_booking(body["booking_id"])
     if not b or b["user_id"] != user["id"]:
@@ -374,7 +380,7 @@ async def api_cancel(req):
 async def api_reschedule(req):
     user = get_user_from_request(req)
     if not user:
-        return web.json_response({"ok": False}, status=401)
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     body = await req.json()
     old = get_booking(body["booking_id"])
     if not old or old["user_id"] != user["id"]:
@@ -393,15 +399,19 @@ async def api_reschedule(req):
 # admin API
 async def api_admin_bookings(req):
     user = get_user_from_request(req)
+    if not user:
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
-        return web.json_response({"ok": False}, status=403)
+        return web.json_response({"ok": False, "error": "not_admin"}, status=403)
     ds = req.query.get("date", date.today().isoformat())
-    return web.json_response({"bookings": all_bookings_date(ds), "slots": day_slots(ds)})
+    return web.json_response({"ok": True, "bookings": all_bookings_date(ds), "slots": day_slots(ds)})
 
 async def api_admin_cancel(req):
     user = get_user_from_request(req)
+    if not user:
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
-        return web.json_response({"ok": False}, status=403)
+        return web.json_response({"ok": False, "error": "not_admin"}, status=403)
     body = await req.json()
     b = get_booking(body["booking_id"])
     if b:
@@ -411,25 +421,31 @@ async def api_admin_cancel(req):
 
 async def api_admin_block(req):
     user = get_user_from_request(req)
+    if not user:
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
-        return web.json_response({"ok": False}, status=403)
+        return web.json_response({"ok": False, "error": "not_admin"}, status=403)
     body = await req.json()
     block_slot(body["date"], body.get("time"), body.get("reason", ""))
     return web.json_response({"ok": True})
 
 async def api_admin_unblock(req):
     user = get_user_from_request(req)
+    if not user:
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
-        return web.json_response({"ok": False}, status=403)
+        return web.json_response({"ok": False, "error": "not_admin"}, status=403)
     body = await req.json()
     unblock_slot(body["date"], body.get("time"))
     return web.json_response({"ok": True})
 
 async def api_admin_stats(req):
     user = get_user_from_request(req)
+    if not user:
+        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
     if not require_admin(user):
-        return web.json_response({"ok": False}, status=403)
-    return web.json_response(get_stats())
+        return web.json_response({"ok": False, "error": "not_admin"}, status=403)
+    return web.json_response({"ok": True, **get_stats()})
 
 async def serve_file(path):
     async def handler(req):
@@ -524,13 +540,17 @@ bot = Bot(token=CONFIG["BOT_TOKEN"], default=DefaultBotProperties(parse_mode="HT
 dp = Dispatcher(storage=MemoryStorage())
 scheduler = AsyncIOScheduler()
 
+def _public_base_url():
+    base = CONFIG.get("API_URL") or CONFIG.get("RENDER_EXTERNAL_URL")
+    if base:
+        return str(base).rstrip("/")
+    return f"http://localhost:{CONFIG['API_PORT']}"
+
 def client_url():
-    base = CONFIG["API_URL"] or f"http://localhost:{CONFIG['API_PORT']}"
-    return f"{base.rstrip('/')}/webapp/index.html"
+    return f"{_public_base_url()}/webapp/index.html"
 
 def admin_url():
-    base = CONFIG["API_URL"] or f"http://localhost:{CONFIG['API_PORT']}"
-    return f"{base.rstrip('/')}/webapp/admin.html"
+    return f"{_public_base_url()}/webapp/admin.html"
 
 def main_kb():
     url = client_url()
@@ -538,6 +558,16 @@ def main_kb():
                                web_app=WebAppInfo(url=url))]]
     buttons.append([KeyboardButton(text="📋 Мои записи"), KeyboardButton(text="ℹ️ О мастере")])
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+ADMIN_PANEL_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/admin.html"
+
+def admin_web_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="Открыть админ панель",
+            web_app=WebAppInfo(url=ADMIN_PANEL_WEBAPP_URL),
+        )],
+    ])
 
 @dp.message(CommandStart())
 async def cmd_start(msg: Message):
@@ -552,6 +582,11 @@ async def cmd_start(msg: Message):
         f"Нажмите кнопку ниже, чтобы записаться 👇"
     )
     await msg.answer(text, reply_markup=main_kb())
+    if msg.from_user.id in CONFIG["ADMIN_IDS"]:
+        await msg.answer(
+            "👑 Вы администратор. Откройте панель:",
+            reply_markup=admin_web_kb(),
+        )
 
 @dp.message(F.text == "ℹ️ О мастере")
 async def cmd_about(msg: Message):
@@ -612,20 +647,9 @@ async def cb_cancel(cb: CallbackQuery):
 @dp.message(Command("admin"))
 async def cmd_admin(msg: Message):
     if msg.from_user.id not in CONFIG["ADMIN_IDS"]:
+        await msg.answer("Нет доступа")
         return
-    s = get_stats()
-    text = (
-        f"👑 <b>Панель Дильшода</b>\n\n"
-        f"📅 Сегодня: <b>{s['today']}</b>\n"
-        f"📅 Завтра: <b>{s['tomorrow']}</b>\n"
-        f"📈 Всего: <b>{s['total']}</b>\n"
-        f"👥 Клиентов: <b>{s['clients']}</b>"
-    )
-    rows = [[InlineKeyboardButton(
-        text="👑 Открыть панель управления",
-        web_app=WebAppInfo(url=admin_url())
-    )]]
-    await msg.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=rows) if rows else None)
+    await msg.answer("Админ панель:", reply_markup=admin_web_kb())
 
 @dp.message(F.web_app_data)
 async def on_webapp_data(msg: Message):
@@ -662,6 +686,10 @@ async def on_webapp_data(msg: Message):
 # ═══════════════════════════════════════
 
 async def main():
+    if not DATABASE_URL:
+        log.error("DATABASE_URL не задан! Укажите строку подключения к PostgreSQL.")
+        raise SystemExit(1)
+
     init_db()
 
     if not CONFIG["API_URL"]:
