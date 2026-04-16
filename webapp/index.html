@@ -291,6 +291,7 @@ const API = (() => {
 })();
 
 const initData = tg.initData;
+const SCREEN = new URLSearchParams(location.search).get('screen') || '';
 
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MO = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
@@ -527,6 +528,10 @@ async function loadReschedSlots(dateStr) {
 
 showScreen('s-home');
 loadCalendar();
+
+if (SCREEN === 'bookings') {
+  loadMyBookings();
+}
 </script>
 </body>
 </html>

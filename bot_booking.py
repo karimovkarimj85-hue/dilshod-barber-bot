@@ -53,6 +53,7 @@ CONFIG = {
     "SERVICE":     "Стрижка",
     "PRICE":       60000,
     "DURATION":    60,
+    "SLOT_STEP_MIN": int(os.getenv("SLOT_STEP_MIN", "30")),
 
     "WORK_START":  11,
     "WORK_END":    20,
@@ -149,8 +150,13 @@ def day_slots(date_str):
         return []
     now = datetime.now()
     out = []
-    for h in range(CONFIG["WORK_START"], CONFIG["WORK_END"]):
-        t = f"{h:02d}:00"
+    step = max(1, int(CONFIG.get("SLOT_STEP_MIN", 30)))
+    duration = max(1, int(CONFIG.get("DURATION", 60)))
+    start_min = int(CONFIG["WORK_START"]) * 60
+    end_min = int(CONFIG["WORK_END"]) * 60
+    latest_start = end_min - duration
+    for m in range(start_min, latest_start + 1, step):
+        t = f"{m // 60:02d}:{m % 60:02d}"
         dt = datetime.strptime(f"{date_str} {t}", "%Y-%m-%d %H:%M")
         if dt <= now:
             st = "past"
@@ -183,8 +189,22 @@ def make_booking(uid, bdate, btime, name="", phone=""):
     d = datetime.strptime(bdate, "%Y-%m-%d").date()
     if d.weekday() in CONFIG["DAYS_OFF"]:
         return None
-    h = int(btime.split(":")[0])
-    if h < CONFIG["WORK_START"] or h >= CONFIG["WORK_END"]:
+    try:
+        hh, mm = [int(x) for x in btime.split(":")]
+    except Exception:
+        return None
+    step = max(1, int(CONFIG.get("SLOT_STEP_MIN", 30)))
+    duration = max(1, int(CONFIG.get("DURATION", 60)))
+    start_min = int(CONFIG["WORK_START"]) * 60
+    end_min = int(CONFIG["WORK_END"]) * 60
+    t_min = hh * 60 + mm
+    if t_min < start_min or t_min > (end_min - duration):
+        return None
+    if (t_min - start_min) % step != 0:
+        return None
+    # Server-side protection from booking in the past
+    dt = datetime.strptime(f"{bdate} {btime}", "%Y-%m-%d %H:%M")
+    if dt <= datetime.now():
         return None
     with get_db() as c:
         c.execute(
@@ -364,7 +384,7 @@ async def api_book(req):
 async def api_my_bookings(req):
     user = await get_user_from_request(req)
     if not user:
-        return web.json_response({"ok": False, "error": "missing_init_data"}, status=401)
+        return web.json_response({"ok": False, "error": "missing_init_data", "bookings": []}, status=401)
     bks = user_bookings(user["id"])
     for b in bks:
         b["can_cancel"] = can_modify(b)
@@ -504,11 +524,12 @@ async def notify_new_booking(bid):
         f"⏰ {b['book_time']}–{end_h:02d}:00\n"
         f"💰 {CONFIG['PRICE']:,} сум"
     )
-    for target in ([CONFIG["CHANNEL_ID"]] if CONFIG["CHANNEL_ID"] else []) + CONFIG["ADMIN_IDS"]:
-        try:
-            await bot.send_message(target, text)
-        except Exception as e:
-            log.warning(f"notify {target}: {e}")
+    if not CONFIG["CHANNEL_ID"]:
+        return
+    try:
+        await bot.send_message(CONFIG["CHANNEL_ID"], text)
+    except Exception as e:
+        log.warning(f"notify channel {CONFIG['CHANNEL_ID']}: {e}")
 
 async def notify_cancel(b):
     d = datetime.strptime(b["book_date"], "%Y-%m-%d").date()
@@ -517,11 +538,12 @@ async def notify_cancel(b):
         f"👤 {b['name'] or '—'}\n"
         f"📅 {d.day} {RU_MO[d.month]} ({RU_WD[d.weekday()]}) {b['book_time']}"
     )
-    for target in ([CONFIG["CHANNEL_ID"]] if CONFIG["CHANNEL_ID"] else []) + CONFIG["ADMIN_IDS"]:
-        try:
-            await bot.send_message(target, text)
-        except Exception as e:
-            log.warning(f"notify {target}: {e}")
+    if not CONFIG["CHANNEL_ID"]:
+        return
+    try:
+        await bot.send_message(CONFIG["CHANNEL_ID"], text)
+    except Exception as e:
+        log.warning(f"notify channel {CONFIG['CHANNEL_ID']}: {e}")
 
 async def notify_reschedule(old, new_bid):
     nb = get_booking(new_bid)
@@ -536,11 +558,12 @@ async def notify_reschedule(old, new_bid):
         f"❌ Было: {od.day} {RU_MO[od.month]} ({RU_WD[od.weekday()]}) {old['book_time']}\n"
         f"✅ Стало: {nd.day} {RU_MO[nd.month]} ({RU_WD[nd.weekday()]}) {nb['book_time']}"
     )
-    for target in ([CONFIG["CHANNEL_ID"]] if CONFIG["CHANNEL_ID"] else []) + CONFIG["ADMIN_IDS"]:
-        try:
-            await bot.send_message(target, text)
-        except Exception as e:
-            log.warning(f"notify {target}: {e}")
+    if not CONFIG["CHANNEL_ID"]:
+        return
+    try:
+        await bot.send_message(CONFIG["CHANNEL_ID"], text)
+    except Exception as e:
+        log.warning(f"notify channel {CONFIG['CHANNEL_ID']}: {e}")
 
 # ═══════════════════════════════════════
 #  BOT
@@ -563,9 +586,10 @@ def admin_url():
     return f"{_public_base_url()}/webapp/admin.html"
 
 CLIENT_BOOKING_WEBAPP_URL = "https://dilshod-barber-bot.onrender.com/webapp/index.html"
+CLIENT_BOOKING_WEBAPP_MY_URL = "https://dilshod-barber-bot.onrender.com/webapp/index.html?screen=bookings"
 
 def main_kb():
-    buttons = [[KeyboardButton(text="📋 Мои записи"), KeyboardButton(text="ℹ️ О мастере")]]
+    buttons = [[KeyboardButton(text="ℹ️ О мастере")]]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
 def booking_inline_kb():
@@ -573,6 +597,26 @@ def booking_inline_kb():
         [InlineKeyboardButton(
             text="✂️ Записаться на стрижку",
             web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
+        )],
+    ])
+
+def my_bookings_inline_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="✂️ Мои записи",
+            web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_MY_URL),
+        )],
+    ])
+
+def client_inline_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="✂️ Записаться на стрижку",
+            web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_URL),
+        )],
+        [InlineKeyboardButton(
+            text="✂️ Мои записи",
+            web_app=WebAppInfo(url=CLIENT_BOOKING_WEBAPP_MY_URL),
         )],
     ])
 
@@ -599,7 +643,7 @@ async def cmd_start(msg: Message):
         f"📅 Пн–Сб, {CONFIG['WORK_START']}:00–{CONFIG['WORK_END']}:00\n\n"
         f"Нажмите кнопку ниже, чтобы записаться 👇"
     )
-    await msg.answer(text, reply_markup=booking_inline_kb())
+    await msg.answer(text, reply_markup=client_inline_kb())
     await msg.answer("Меню:", reply_markup=main_kb())
     if msg.from_user.id in CONFIG["ADMIN_IDS"]:
         await msg.answer(
