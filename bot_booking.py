@@ -37,7 +37,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 #  CONFIG
 # ═══════════════════════════════════════
 
-_DEFAULT_ADMIN_ID = 1125022050
+_DEFAULT_ADMIN_ID = 645037780
 _ADMIN_IDS_RAW = os.getenv("ADMIN_IDS", str(_DEFAULT_ADMIN_ID))
 
 CONFIG = {
@@ -45,7 +45,7 @@ CONFIG = {
     "ADMIN_IDS": sorted(
         {int(x.strip()) for x in _ADMIN_IDS_RAW.split(",") if x.strip()} | {_DEFAULT_ADMIN_ID}
     ),
-    "CHANNEL_ID": int(os.getenv("CHANNEL_ID", "-1003692525683")),
+    "CHANNEL_ID": int(os.getenv("CHANNEL_ID", "-1003719062121")),
 
     "BARBER_NAME": "Дильшод",
     "BARBER_YEAR": 2005,

@@ -13,9 +13,9 @@ services:
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_IDS
-        value: "1125022050"
+        value: "645037780"
       - key: CHANNEL_ID
-        value: "-1003692525683"
+        value: "-1003719062121"
       - key: PYTHON_VERSION
         value: "3.11.9"
       - key: DATABASE_URL
