@@ -30,6 +30,7 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
   letter-spacing:-.3px}
 
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+@media(min-width:520px){.stats{grid-template-columns:repeat(3,1fr)}}
 .stat-card{background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);
   padding:16px;text-align:center;box-shadow:var(--shadow);transition:all .2s}
 .stat-card .num{font-size:32px;font-weight:800;
@@ -107,11 +108,16 @@ h2{font-size:20px;font-weight:800;margin-bottom:20px;display:flex;align-items:ce
   <h2>Панель управления</h2>
 
   <div class="stats" id="stats-grid">
-    <div class="stat-card"><div class="num" id="st-today">—</div><div class="lbl">Сегодня</div></div>
-    <div class="stat-card"><div class="num" id="st-tomorrow">—</div><div class="lbl">Завтра</div></div>
-    <div class="stat-card"><div class="num" id="st-total">—</div><div class="lbl">Всего</div></div>
+    <div class="stat-card"><div class="num" id="st-today">—</div><div class="lbl">Сегодня записей</div></div>
+    <div class="stat-card"><div class="num" id="st-tomorrow">—</div><div class="lbl">Завтра записей</div></div>
+    <div class="stat-card"><div class="num" id="st-rev-day">—</div><div class="lbl">Доход сегодня</div></div>
+    <div class="stat-card"><div class="num" id="st-rev-week">—</div><div class="lbl">Доход неделя</div></div>
+    <div class="stat-card"><div class="num" id="st-rev-month">—</div><div class="lbl">Доход месяц</div></div>
+    <div class="stat-card"><div class="num" id="st-total">—</div><div class="lbl">Всего записей</div></div>
     <div class="stat-card"><div class="num" id="st-clients">—</div><div class="lbl">Клиентов</div></div>
   </div>
+  <div class="section-title" id="top-s-title" style="display:none">Популярные услуги</div>
+  <div id="top-s" class="booking-item" style="display:none;flex-direction:column;align-items:stretch;text-align:left"></div>
 
   <div class="section-title">Выберите день</div>
   <div class="cal-scroll" id="admin-cal"></div>
@@ -204,6 +210,11 @@ function switchTab(tab) {
   document.getElementById('view-slots').style.display = tab === 'slots' ? '' : 'none';
 }
 
+function fmtSum(n) {
+  if (n == null) return '—';
+  return (n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' с';
+}
+
 async function loadStats() {
   const s = await api('/api/admin/stats');
   if (!s) return false;
@@ -211,6 +222,20 @@ async function loadStats() {
   document.getElementById('st-tomorrow').textContent = s.tomorrow;
   document.getElementById('st-total').textContent = s.total;
   document.getElementById('st-clients').textContent = s.clients;
+  const rd = document.getElementById('st-rev-day');
+  const rw = document.getElementById('st-rev-week');
+  const rm = document.getElementById('st-rev-month');
+  if (rd) rd.textContent = fmtSum(s.revenue_day);
+  if (rw) rw.textContent = fmtSum(s.revenue_week);
+  if (rm) rm.textContent = fmtSum(s.revenue_month);
+  const top = s.top_services || [];
+  const ts = document.getElementById('top-s');
+  const tst = document.getElementById('top-s-title');
+  if (top.length && ts && tst) {
+    tst.style.display = '';
+    ts.style.display = '';
+    ts.innerHTML = top.map(t => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">${t.name} · <b>${t.count}</b></div>`).join('');
+  } else if (ts) ts.style.display = 'none';
   return true;
 }
 
@@ -262,11 +287,14 @@ async function loadDayData() {
     bookings.forEach(b => {
       const item = document.createElement('div');
       item.className = 'booking-item';
+      const et = b.end_time ? ` – ${b.end_time}` : '';
+      const sl = b.services_line ? `<div style="font-size:12px;color:var(--dim);margin-top:4px">${b.services_line}</div>` : '';
       item.innerHTML =
         `<div class="bi-info">` +
-          `<div class="bi-time">${b.book_time}</div>` +
+          `<div class="bi-time">${b.book_time}${et} · ${b.total_price ? (b.total_price+'').replace(/\B(?=(\d{3})+(?!\d))/g,' ') : '—'} сум</div>` +
           `<div class="bi-name">${b.name || b.ufn || '—'} ${b.username ? '@' + b.username : ''}</div>` +
           `<div class="bi-phone">${b.phone || '—'}</div>` +
+          sl +
         `</div>` +
         `<div class="bi-actions">` +
           `<button class="bi-btn cancel" onclick="adminCancel(${b.id})" title="Отменить">✕</button>` +

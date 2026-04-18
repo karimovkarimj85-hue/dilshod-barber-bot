@@ -124,6 +124,30 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 }
 .slot.past,.slot.blocked{background:var(--card);color:var(--dim2);
   border-color:var(--border);pointer-events:none;cursor:default}
+.slot .rng{display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,.45);margin-top:4px}
+
+.service-list{margin-top:12px}
+.svc-item{display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:var(--r);
+  background:var(--card2);border:1px solid var(--border2);margin-bottom:10px;cursor:pointer;
+  transition:all .2s;box-shadow:var(--shadow)}
+.svc-item:active{transform:scale(.985)}
+.svc-item.on{border-color:var(--accent);background:var(--accent-dim);
+  box-shadow:0 0 18px rgba(201,169,110,.12)}
+.svc-item .chk{width:22px;height:22px;border-radius:6px;border:2px solid var(--border2);
+  flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:800;color:var(--bg);background:transparent}
+.svc-item.on .chk{background:linear-gradient(135deg,var(--accent),#a88542);border-color:transparent}
+.svc-item .si{flex:1}
+.svc-item .sn{font-weight:700;font-size:15px}
+.svc-item .sm{font-size:12px;color:var(--dim);margin-top:4px}
+.svc-total{display:flex;justify-content:space-between;align-items:center;padding:14px;border-radius:var(--r);
+  background:var(--card);border:1px solid var(--border2);margin:14px 0 10px}
+.svc-total .p{font-weight:800;font-size:18px;color:var(--accent)}
+.price-home{margin-top:18px;padding:16px;border-radius:var(--r);background:var(--card2);
+  border:1px solid var(--border2)}
+.price-home .ph-row{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;
+  border-bottom:1px solid var(--border);color:var(--text2)}
+.price-home .ph-row:last-child{border-bottom:none}
 
 .legend{display:flex;gap:16px;margin:14px 0;font-size:11px;color:var(--dim);font-weight:500}
 .legend span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;
@@ -231,19 +255,34 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
     </div>
     <h1>Дильшод</h1>
     <div class="sub">барбер</div>
-    <div class="meta">
-      <span>Стрижка</span><span class="dot">·</span>
-      <span>60 000 сум</span><span class="dot">·</span>
-      <span>~1 час</span>
-    </div>
+    <div class="meta" id="hero-meta">Загрузка прайса…</div>
   </div>
+  <div class="price-home" id="price-home" style="display:none"></div>
   <div style="margin-top:28px">
-    <button class="btn btn-primary" id="btn-book" onclick="showScreen('s-calendar')">Записаться</button>
+    <button class="btn btn-primary" id="btn-book" onclick="openServices()">Записаться</button>
     <button class="btn btn-outline" id="btn-my" onclick="loadMyBookings()">Мои записи</button>
   </div>
-  <div class="info-bar">
-    Пн–Сб, 11:00–20:00 &nbsp;·&nbsp; <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
+  <div class="info-bar" id="info-bar">
+    <span id="schedule-note">…</span>
+    &nbsp;·&nbsp; <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
   </div>
+</div>
+
+<!-- SERVICES -->
+<div id="s-services" class="screen">
+  <div class="back-row" onclick="showScreen('s-home')">← Назад</div>
+  <div class="section-title">Услуги</div>
+  <p style="font-size:13px;color:var(--dim);line-height:1.5;margin-bottom:12px">Можно выбрать несколько — время и цена пересчитаются автоматически.</p>
+  <div class="service-list" id="service-list"></div>
+  <div class="svc-total">
+    <span style="color:var(--dim);font-weight:600;font-size:13px">Итого</span>
+    <span class="p" id="svc-sum">0 сум</span>
+  </div>
+  <div style="font-size:12px;color:var(--dim);margin:-4px 0 12px">
+    Длительность (с перерывом на уборку): <b id="svc-dur">0 мин</b>
+  </div>
+  <button class="btn btn-primary" id="btn-svc-next" onclick="servicesNext()">Далее</button>
+  <button class="btn btn-outline" onclick="bookAgain()">Записаться снова (как в прошлый раз)</button>
 </div>
 
 <!-- CALENDAR -->
@@ -333,7 +372,12 @@ const SCREEN = new URLSearchParams(location.search).get('screen') || '';
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const MO = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
 
-let selectedDate = null, selectedTime = null, reschedulingId = null;
+let selectedDate = null, selectedTime = null, selectedEnd = null, reschedulingId = null;
+let servicesCatalog = [];
+let selectedServiceIds = [];
+let bufferMin = 10;
+let clientCancelHours = 2;
+let lastBookings = [];
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -376,10 +420,112 @@ async function api(path, opts = {}) {
   }
 }
 
-async function loadCalendar(targetCal = 'cal-scroll', onSelect = null) {
+function calendarUrl(excludeBid) {
+  const p = new URLSearchParams();
+  if (selectedServiceIds.length) p.set('service_ids', selectedServiceIds.join(','));
+  if (excludeBid) p.set('exclude_booking_id', String(excludeBid));
+  const q = p.toString();
+  return '/api/calendar' + (q ? '?' + q : '');
+}
+
+function scheduleUrl(dateStr, excludeBid) {
+  const p = new URLSearchParams();
+  p.set('date', dateStr);
+  if (selectedServiceIds.length) p.set('service_ids', selectedServiceIds.join(','));
+  if (excludeBid) p.set('exclude_booking_id', String(excludeBid));
+  return '/api/schedule?' + p.toString();
+}
+
+function calcSelection() {
+  let dm = 0, pr = 0;
+  selectedServiceIds.forEach(id => {
+    const s = servicesCatalog.find(x => x.id === id);
+    if (s) { dm += s.duration_min; pr += s.price; }
+  });
+  const block = dm + bufferMin;
+  return { dm, pr, block };
+}
+
+function formatMoney(n) {
+  return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' сум';
+}
+
+async function loadAppConfig() {
+  const data = await api('/api/config');
+  if (!data || !data.services) return;
+  servicesCatalog = data.services;
+  bufferMin = data.buffer_min != null ? data.buffer_min : 10;
+  clientCancelHours = data.client_cancel_h != null ? data.client_cancel_h : 2;
+  const sn = document.getElementById('schedule-note');
+  if (data.schedule_note) sn.textContent = data.schedule_note;
+  const hm = document.getElementById('hero-meta');
+  const mins = data.services.map(s => s.price);
+  const fromP = mins.length ? Math.min.apply(null, mins) : 0;
+  hm.innerHTML = '<span>Мультиуслуги</span><span class="dot">·</span><span>от ' +
+    formatMoney(fromP) + '</span>';
+  const ph = document.getElementById('price-home');
+  ph.style.display = '';
+  ph.innerHTML = data.services.map(s =>
+    `<div class="ph-row"><span>${s.name}</span><span>${formatMoney(s.price)} · ${s.duration_min} мин</span></div>`
+  ).join('');
+}
+
+function renderServiceList() {
+  const el = document.getElementById('service-list');
+  el.innerHTML = '';
+  servicesCatalog.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'svc-item' + (selectedServiceIds.includes(s.id) ? ' on' : '');
+    row.onclick = () => toggleService(s.id);
+    row.innerHTML =
+      `<div class="chk">${selectedServiceIds.includes(s.id) ? '✓' : ''}</div>` +
+      `<div class="si"><div class="sn">${s.name}</div>` +
+      `<div class="sm">${formatMoney(s.price)} · ${s.duration_min} мин</div></div>`;
+    el.appendChild(row);
+  });
+  updateSvcTotal();
+}
+
+function toggleService(id) {
+  const i = selectedServiceIds.indexOf(id);
+  if (i >= 0) selectedServiceIds.splice(i, 1);
+  else selectedServiceIds.push(id);
+  renderServiceList();
+}
+
+function updateSvcTotal() {
+  const { pr, block } = calcSelection();
+  document.getElementById('svc-sum').textContent = formatMoney(pr);
+  document.getElementById('svc-dur').textContent = block + ' мин (услуги + ' + bufferMin + ' мин)';
+}
+
+function openServices() {
+  showScreen('s-services');
+  if (!servicesCatalog.length) loadAppConfig().then(renderServiceList);
+  else renderServiceList();
+}
+
+function servicesNext() {
+  if (!selectedServiceIds.length) { toast('Выберите хотя бы одну услугу', false); return; }
+  showScreen('s-calendar');
+  loadCalendar();
+}
+
+async function bookAgain() {
+  const data = await api('/api/last-services', { method: 'POST', body: JSON.stringify({}) });
+  if (!data || !data.service_ids || !data.service_ids.length) {
+    toast('Нет прошлых услуг', false);
+    return;
+  }
+  selectedServiceIds = data.service_ids.slice();
+  renderServiceList();
+  toast('Услуги подставлены');
+}
+
+async function loadCalendar(targetCal = 'cal-scroll', onSelect = null, excludeBid = null) {
   const el = document.getElementById(targetCal);
   el.innerHTML = '<div class="loader"></div>';
-  const data = await api('/api/calendar');
+  const data = await api(calendarUrl(excludeBid));
   if (!data) { el.innerHTML = '<div class="empty">Не удалось загрузить расписание</div>'; return; }
   el.innerHTML = '';
   (data.days || []).forEach(d => {
@@ -396,16 +542,17 @@ async function loadCalendar(targetCal = 'cal-scroll', onSelect = null) {
         el.querySelectorAll('.day-card').forEach(c => c.classList.remove('sel'));
         card.classList.add('sel');
         if (onSelect) onSelect(d.date);
-        else loadSlots(d.date);
+        else loadSlots(d.date, excludeBid);
       };
     }
     el.appendChild(card);
   });
 }
 
-async function loadSlots(dateStr) {
+async function loadSlots(dateStr, excludeBid = null) {
   selectedDate = dateStr;
   selectedTime = null;
+  selectedEnd = null;
   const now = new Date();
   const today = new Date().toISOString().slice(0, 10);
   const grid = document.getElementById('slots-grid');
@@ -417,7 +564,7 @@ async function loadSlots(dateStr) {
   legend.style.display = '';
   empty.style.display = 'none';
 
-  const data = await api('/api/schedule?date=' + dateStr);
+  const data = await api(scheduleUrl(dateStr, excludeBid));
   if (!data) {
     grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Ошибка загрузки</div>';
     title.style.display = 'none';
@@ -436,13 +583,15 @@ async function loadSlots(dateStr) {
       if (slotDateTime < now) status = 'past';
     }
     el.className = 'slot ' + status;
-    el.textContent = s.time;
+    const endL = s.end ? `<span class="rng">${s.time} → ${s.end}</span>` : s.time;
+    el.innerHTML = typeof s.end === 'string' ? endL : s.time;
     if (status === 'free') {
       hasFree = true;
       el.onclick = () => {
         grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
         el.classList.add('sel');
         selectedTime = s.time;
+        selectedEnd = s.end || null;
         goConfirm();
       };
     }
@@ -453,12 +602,17 @@ async function loadSlots(dateStr) {
 
 function goConfirm() {
   const dt = new Date(selectedDate + 'T00:00:00');
-  const endH = parseInt(selectedTime) + 1;
+  const { pr } = calcSelection();
+  const names = selectedServiceIds.map(id => {
+    const s = servicesCatalog.find(x => x.id === id);
+    return s ? s.name : '';
+  }).filter(Boolean).join(', ') || 'Услуги';
+  const endDisplay = selectedEnd || '—';
   document.getElementById('confirm-summary').innerHTML =
-    `<div class="row"><span class="label">Услуга</span><span>Стрижка</span></div>` +
+    `<div class="row"><span class="label">Услуги</span><span>${names}</span></div>` +
     `<div class="row"><span class="label">Дата</span><span>${dt.getDate()} ${MO[dt.getMonth()]} (${WD[(dt.getDay()+6)%7]})</span></div>` +
-    `<div class="row"><span class="label">Время</span><span>${selectedTime} – ${endH < 10 ? '0' : ''}${endH}:00</span></div>` +
-    `<div class="row"><span class="label">Стоимость</span><span>60 000 сум</span></div>`;
+    `<div class="row"><span class="label">Время</span><span>${selectedTime} – ${endDisplay}</span></div>` +
+    `<div class="row"><span class="label">Стоимость</span><span>${formatMoney(pr)}</span></div>`;
   const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
   if (user) document.getElementById('inp-name').value = user.first_name || '';
   showScreen('s-confirm');
@@ -485,16 +639,29 @@ async function submitBooking() {
   try {
     let res;
     if (reschedulingId) {
-      res = await api('/api/reschedule', {method:'POST',body:JSON.stringify({booking_id:reschedulingId,new_date:selectedDate,new_time:selectedTime})});
+      res = await api('/api/reschedule', {method:'POST',body:JSON.stringify({
+        booking_id: reschedulingId,
+        new_date: selectedDate,
+        new_time: selectedTime,
+        service_ids: selectedServiceIds
+      })});
       reschedulingId = null;
     } else {
-      res = await api('/api/book', {method:'POST',body:JSON.stringify({date:selectedDate,time:selectedTime,name,phone})});
+      res = await api('/api/book', {method:'POST',body:JSON.stringify({
+        date: selectedDate,
+        time: selectedTime,
+        name,
+        phone,
+        service_ids: selectedServiceIds
+      })});
     }
     if (!res) return;
     const dt = new Date(selectedDate + 'T00:00:00');
-    document.getElementById('success-info').textContent = `${dt.getDate()} ${MO[dt.getMonth()]} в ${selectedTime}`;
+    document.getElementById('success-info').textContent =
+      `${dt.getDate()} ${MO[dt.getMonth()]} в ${selectedTime}` +
+      (selectedEnd ? ` → ${selectedEnd}` : '');
     showScreen('s-success');
-  } finally { btn.disabled = false; btn.textContent = 'Подтвердить запись'; }
+  } finally { btn.disabled = false; btn.textContent = 'Подтвердить'; }
 }
 
 async function loadMyBookings() {
@@ -513,6 +680,7 @@ async function loadMyBookings() {
 
   list.innerHTML = '';
   const bookings = data.bookings || [];
+  lastBookings = bookings;
   if (!bookings.length) {
     empty.style.display = '';
     return;
@@ -522,17 +690,18 @@ async function loadMyBookings() {
     const dt = new Date(b.book_date + 'T00:00:00');
     const card = document.createElement('div');
     card.className = 'booking-card';
-    const endH = parseInt(b.book_time) + 1;
+    const endT = b.end_time || '—';
+    const svcLine = b.services_line ? `<div style="font-size:13px;color:var(--dim);margin-top:6px">${b.services_line}</div>` : '';
     const actionsHtml = b.can_cancel
       ? `<div class="bc-actions">
            <button class="bc-btn cancel" onclick="cancelBooking(${b.id})">✕ Отменить</button>
            <button class="bc-btn move" onclick="startReschedule(${b.id})">↻ Перенести</button>
          </div>`
-      : `<div class="bc-locked">Менее 16ч — свяжитесь с мастером:<br>
+      : `<div class="bc-locked">Менее ${clientCancelHours}ч — свяжитесь с мастером:<br>
            <a href="tel:+998971163161">+998 97 116 31 61</a></div>`;
     card.innerHTML =
       `<div class="bc-date">${dt.getDate()} ${MO[dt.getMonth()]} (${WD[(dt.getDay()+6)%7]})</div>` +
-      `<div class="bc-time">${b.book_time} – ${endH < 10 ? '0' : ''}${endH}:00</div>` +
+      `<div class="bc-time">${b.book_time} – ${endT}</div>` + svcLine +
       actionsHtml;
     list.appendChild(card);
   });
@@ -545,29 +714,34 @@ async function cancelBooking(bid) {
 }
 
 function startReschedule(bid) {
+  const rec = lastBookings.find(x => x.id === bid);
+  if (rec && rec.service_ids && rec.service_ids.length)
+    selectedServiceIds = rec.service_ids.slice();
   reschedulingId = bid;
   showScreen('s-resched');
-  loadCalendar('resched-cal', loadReschedSlots);
+  loadCalendar('resched-cal', loadReschedSlots, reschedulingId);
 }
 
 async function loadReschedSlots(dateStr) {
-  selectedDate = dateStr; selectedTime = null;
+  selectedDate = dateStr; selectedTime = null; selectedEnd = null;
   const grid = document.getElementById('resched-slots');
   const title = document.getElementById('resched-slots-title');
   grid.innerHTML = '<div class="loader" style="grid-column:1/-1"></div>';
   title.style.display = '';
-  const data = await api('/api/schedule?date=' + dateStr);
+  const data = await api(scheduleUrl(dateStr, reschedulingId));
   if (!data) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Ошибка</div>'; return; }
   grid.innerHTML = '';
   (data.slots || []).forEach(s => {
     const el = document.createElement('div');
     el.className = 'slot ' + s.status;
-    el.textContent = s.time;
+    const inner = s.end ? `<span class="rng">${s.time} → ${s.end}</span>` : s.time;
+    el.innerHTML = typeof s.end === 'string' ? inner : s.time;
     if (s.status === 'free') {
       el.onclick = () => {
         grid.querySelectorAll('.slot').forEach(x => x.classList.remove('sel'));
         el.classList.add('sel');
         selectedTime = s.time;
+        selectedEnd = s.end || null;
         goConfirm();
       };
     }
@@ -576,7 +750,7 @@ async function loadReschedSlots(dateStr) {
 }
 
 showScreen('s-home');
-loadCalendar();
+loadAppConfig();
 
 if (SCREEN === 'bookings') {
   loadMyBookings();
