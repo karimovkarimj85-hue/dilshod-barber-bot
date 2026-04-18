@@ -239,29 +239,151 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
 }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 
+/* ── Light rays (CSS analog of LightRays, WebGL-free) ── */
+.light-rays{
+  position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden;
+  border-radius:inherit;
+}
+.light-rays::before,.light-rays::after{
+  content:'';position:absolute;left:-30%;width:160%;height:90%;top:-35%;
+  background:conic-gradient(from 200deg at 50% 115%,
+    transparent 30%,
+    rgba(201,169,110,.07) 42%,
+    rgba(255,255,255,.04) 50%,
+    rgba(201,169,110,.06) 58%,
+    transparent 72%);
+  animation:rays-drift 14s ease-in-out infinite;
+  opacity:.85;
+}
+.light-rays::after{
+  animation-delay:-7s;animation-duration:19s;
+  transform-origin:50% 100%;
+  opacity:.5;
+}
+@keyframes rays-drift{
+  0%,100%{transform:translate(0,0) rotate(-2deg) scale(1)}
+  50%{transform:translate(4%,2%) rotate(3deg) scale(1.03)}
+}
+
+/* ── Gradual blur stack (GradualBlur-inspired, vanilla) ── */
+.gradual-blur-root{
+  position:absolute;left:0;right:0;bottom:0;height:6.5rem;pointer-events:none;z-index:5;
+}
+.gb-layer{
+  position:absolute;inset:0;
+  -webkit-backdrop-filter:blur(var(--bf)) saturate(1.15);
+  backdrop-filter:blur(var(--bf)) saturate(1.15);
+  mask-image:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,.45) 35%, #000 95%);
+  -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,.45) 35%, #000 95%);
+  opacity:var(--go,1);
+}
+
+/* ── Home shell ── */
+.home-shell{
+  position:relative;isolation:isolate;border-radius:var(--r3);
+  background:linear-gradient(180deg, rgba(255,255,255,.03), transparent 45%);
+  border:1px solid var(--border2);
+  box-shadow:var(--shadow);
+  margin-bottom:18px;overflow:hidden;
+  min-height:120px;
+}
+.home-scroll{
+  position:relative;z-index:2;max-height:62vh;overflow-y:auto;
+  padding:1.25rem 1rem 5rem;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.home-scroll::-webkit-scrollbar{display:none}
+.pixel-trail-canvas{
+  position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:.9;
+}
+
+/* ── Gooey CTA (SVG filter, inspired by GooeyNav / PixelTrail goo) ── */
+.gooey-svg{position:absolute;width:0;height:0;overflow:hidden}
+.gooey-dock-wrap{padding:4px 0 6px;filter:url(#gooey-cta);margin-top:8px}
+.gooey-pair{
+  display:flex;gap:14px;padding:10px 12px;border-radius:28px;
+  background:rgba(255,255,255,.04);
+}
+.gooey-btn{
+  flex:1;border:none;border-radius:22px;padding:15px 16px;font-size:15px;font-weight:700;cursor:pointer;
+  font-family:inherit;letter-spacing:.2px;transition:transform .15s, box-shadow .2s;
+}
+.gooey-btn:active{transform:scale(.97)}
+.gooey-btn--primary{
+  background:linear-gradient(135deg,var(--accent),#a88542);color:var(--bg);
+  box-shadow:0 4px 22px rgba(201,169,110,.35),inset 0 1px 0 rgba(255,255,255,.2);
+}
+.gooey-btn--ghost{
+  background:rgba(18,18,18,.85);color:var(--text);border:1px solid var(--border2);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* ── Counter (motion Counter-inspired, tabular) ── */
+.counter-tab{font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.02em}
+.counter-suffix{font-weight:700;font-size:.92em;opacity:.9;margin-left:4px}
+.svc-total .p .counter-tab{font-size:22px;background:linear-gradient(135deg,var(--accent2),var(--accent));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ── Services panel blur ── */
+.services-panel{position:relative;border-radius:var(--r);overflow:hidden;border:1px solid var(--border2)}
+.services-scroll{max-height:54vh;overflow-y:auto;padding-bottom:4rem;scrollbar-width:none}
+.services-scroll::-webkit-scrollbar{display:none}
+.services-fade{
+  position:absolute;left:0;right:0;bottom:0;height:4.5rem;pointer-events:none;z-index:3;
+  background:linear-gradient(to top, var(--bg) 12%, rgba(5,5,5,0) 100%);
+}
+
 </style>
 </head>
 <body>
 
+<svg class="gooey-svg" aria-hidden="true">
+  <defs>
+    <filter id="gooey-cta" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur"/>
+      <feColorMatrix in="blur" mode="matrix"
+        values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo"/>
+      <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+    </filter>
+  </defs>
+</svg>
+
 <!-- HOME -->
 <div id="s-home" class="screen active">
-  <div class="hero">
-    <div class="avatar-wrap">
-      <img class="avatar" id="barber-photo" src="https://karimovkarimj85-hue.github.io/Dilshod_clients/photo.jpg"
-        onerror="this.style.display='none';document.getElementById('barber-fallback').style.display='flex'"
-        alt="Дильшод">
-      <div class="avatar-fallback" id="barber-fallback" style="display:none">Д</div>
-      <div class="avatar-badge"></div>
+  <div class="home-shell" id="home-shell">
+    <div class="light-rays" aria-hidden="true"></div>
+    <canvas class="pixel-trail-canvas" id="pixel-trail" width="300" height="300" aria-hidden="true"></canvas>
+    <div class="home-scroll" id="home-scroll">
+      <div class="hero" style="position:relative;z-index:2;padding-top:8px">
+        <div class="avatar-wrap">
+          <img class="avatar" id="barber-photo" src="https://karimovkarimj85-hue.github.io/Dilshod_clients/photo.jpg"
+            onerror="this.style.display='none';document.getElementById('barber-fallback').style.display='flex'"
+            alt="Дильшод">
+          <div class="avatar-fallback" id="barber-fallback" style="display:none">Д</div>
+          <div class="avatar-badge"></div>
+        </div>
+        <h1>Дильшод</h1>
+        <div class="sub">барбер</div>
+        <div class="meta" id="hero-meta">Загрузка прайса…</div>
+      </div>
+      <div class="price-home" id="price-home" style="display:none;margin-top:8px"></div>
     </div>
-    <h1>Дильшод</h1>
-    <div class="sub">барбер</div>
-    <div class="meta" id="hero-meta">Загрузка прайса…</div>
+    <div class="gradual-blur-root" aria-hidden="true">
+      <div class="gb-layer" style="--bf:0.18rem;--go:.35"></div>
+      <div class="gb-layer" style="--bf:0.45rem;--go:.5"></div>
+      <div class="gb-layer" style="--bf:0.85rem;--go:.65"></div>
+      <div class="gb-layer" style="--bf:1.35rem;--go:.85"></div>
+      <div class="gb-layer" style="--bf:2rem;--go:1"></div>
+    </div>
   </div>
-  <div class="price-home" id="price-home" style="display:none"></div>
-  <div style="margin-top:28px">
-    <button class="btn btn-primary" id="btn-book" onclick="openServices()">Записаться</button>
-    <button class="btn btn-outline" id="btn-my" onclick="loadMyBookings()">Мои записи</button>
+
+  <div class="gooey-dock-wrap">
+    <div class="gooey-pair">
+      <button type="button" class="gooey-btn gooey-btn--primary" onclick="openServices()">Записаться</button>
+      <button type="button" class="gooey-btn gooey-btn--ghost" onclick="loadMyBookings()">Мои записи</button>
+    </div>
   </div>
+
   <div class="info-bar" id="info-bar">
     <span id="schedule-note">…</span>
     &nbsp;·&nbsp; <a href="tel:+998971163161" style="color:var(--accent);text-decoration:none;font-weight:700">+998 97 116 31 61</a>
@@ -273,16 +395,25 @@ body{padding-bottom:env(safe-area-inset-bottom,20px)}
   <div class="back-row" onclick="showScreen('s-home')">← Назад</div>
   <div class="section-title">Услуги</div>
   <p style="font-size:13px;color:var(--dim);line-height:1.5;margin-bottom:12px">Можно выбрать несколько — время и цена пересчитаются автоматически.</p>
-  <div class="service-list" id="service-list"></div>
-  <div class="svc-total">
+  <div class="services-panel">
+    <div class="services-scroll">
+      <div class="service-list" id="service-list"></div>
+    </div>
+    <div class="services-fade"></div>
+  </div>
+  <div class="svc-total" style="margin-top:14px">
     <span style="color:var(--dim);font-weight:600;font-size:13px">Итого</span>
-    <span class="p" id="svc-sum">0 сум</span>
+    <span class="p" id="svc-sum"><span class="counter-tab" id="svc-sum-num">0</span><span class="counter-suffix"> сум</span></span>
   </div>
   <div style="font-size:12px;color:var(--dim);margin:-4px 0 12px">
     Длительность (с перерывом на уборку): <b id="svc-dur">0 мин</b>
   </div>
-  <button class="btn btn-primary" id="btn-svc-next" onclick="servicesNext()">Далее</button>
-  <button class="btn btn-outline" onclick="bookAgain()">Записаться снова (как в прошлый раз)</button>
+  <div class="gooey-dock-wrap" style="margin-top:4px;filter:none">
+    <div class="gooey-pair" style="filter:url(#gooey-cta)">
+      <button type="button" class="gooey-btn gooey-btn--primary" id="btn-svc-next" onclick="servicesNext()">Далее</button>
+      <button type="button" class="gooey-btn gooey-btn--ghost" onclick="bookAgain()">Как в прошлый раз</button>
+    </div>
+  </div>
 </div>
 
 <!-- CALENDAR -->
@@ -450,6 +581,94 @@ function formatMoney(n) {
   return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' сум';
 }
 
+function formatMoneyPlain(n) {
+  return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/** Counter-style number tween (inspired by motion Counter) */
+function animateNumber(el, from, to, ms, fmt) {
+  if (!el) return;
+  if (from === to) {
+    el.textContent = fmt(to);
+    return;
+  }
+  const t0 = performance.now();
+  function frame(now) {
+    const p = Math.min(1, (now - t0) / ms);
+    const e = 1 - Math.pow(1 - p, 3);
+    const v = Math.round(from + (to - from) * e);
+    el.textContent = fmt(v);
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+let lastSvcPrice = null;
+
+/** Лёгкий PixelTrail (Canvas2D, без WebGL — дружелюбно к Telegram WebView) */
+function initPixelTrail() {
+  const canvas = document.getElementById('pixel-trail');
+  const shell = document.getElementById('home-shell');
+  if (!canvas || !shell) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+  let w = 300, h = 300;
+  const dots = [];
+  const maxDots = 48;
+
+  function resize() {
+    const r = shell.getBoundingClientRect();
+    w = Math.max(1, Math.floor(r.width));
+    h = Math.max(1, Math.floor(r.height));
+    canvas.width = w * DPR;
+    canvas.height = h * DPR;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  try {
+    const ro = new ResizeObserver(resize);
+    ro.observe(shell);
+  } catch (_) {
+    window.addEventListener('resize', resize);
+  }
+
+  function addDot(x, y) {
+    dots.push({ x, y, r: 2 + Math.random() * 2.5, life: 1 });
+    while (dots.length > maxDots) dots.shift();
+  }
+
+  function loop() {
+    ctx.clearRect(0, 0, w, h);
+    for (let i = dots.length - 1; i >= 0; i--) {
+      const d = dots[i];
+      d.life -= 0.028;
+      if (d.life <= 0) {
+        dots.splice(i, 1);
+        continue;
+      }
+      const a = 0.22 * d.life;
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(201,169,110,${a})`;
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+  shell.addEventListener(
+    'pointermove',
+    (e) => {
+      const r = shell.getBoundingClientRect();
+      addDot(e.clientX - r.left, e.clientY - r.top);
+    },
+    { passive: true }
+  );
+}
+
 async function loadAppConfig() {
   const data = await api('/api/config');
   if (!data || !data.services) return;
@@ -495,11 +714,16 @@ function toggleService(id) {
 
 function updateSvcTotal() {
   const { pr, block } = calcSelection();
-  document.getElementById('svc-sum').textContent = formatMoney(pr);
-  document.getElementById('svc-dur').textContent = block + ' мин (услуги + ' + bufferMin + ' мин)';
+  const numEl = document.getElementById('svc-sum-num');
+  const from = lastSvcPrice != null ? lastSvcPrice : 0;
+  lastSvcPrice = pr;
+  animateNumber(numEl, from, pr, 380, formatMoneyPlain);
+  const durEl = document.getElementById('svc-dur');
+  if (durEl) durEl.textContent = block + ' мин (услуги + ' + bufferMin + ' мин)';
 }
 
 function openServices() {
+  lastSvcPrice = null;
   showScreen('s-services');
   if (!servicesCatalog.length) loadAppConfig().then(renderServiceList);
   else renderServiceList();
@@ -751,6 +975,7 @@ async function loadReschedSlots(dateStr) {
 
 showScreen('s-home');
 loadAppConfig();
+initPixelTrail();
 
 if (SCREEN === 'bookings') {
   loadMyBookings();
