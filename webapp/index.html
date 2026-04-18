@@ -367,6 +367,7 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
   box-shadow:0 8px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
   -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
 }
+.gooey-pair--single .gooey-btn--primary{width:100%}
 .gooey-btn{
   flex:1;border:none;border-radius:22px;padding:15px 16px;font-size:15px;font-weight:700;cursor:pointer;
   font-family:inherit;letter-spacing:.2px;transition:transform .15s, box-shadow .2s;
@@ -452,9 +453,8 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
   </div>
 
   <div class="gooey-dock-wrap">
-    <div class="gooey-pair">
+    <div class="gooey-pair gooey-pair--single">
       <button type="button" class="gooey-btn gooey-btn--primary" onclick="openServices()">Записаться</button>
-      <button type="button" class="gooey-btn gooey-btn--ghost" onclick="loadMyBookings()">Мои записи</button>
     </div>
   </div>
 
