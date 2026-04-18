@@ -151,7 +151,7 @@ export async function mountLineWaves(container) {
   const rotation = -45;
   const edgeFadeWidth = 0;
   const colorCycleSpeed = 1;
-  const brightness = 0.22;
+  const brightness = 0.28;
   const color1 = '#ffffff';
   const color2 = '#ffffff';
   const color3 = '#ffffff';

@@ -28,6 +28,9 @@
   --accent2:#e5e5e5;
   --accent-dim:rgba(255,255,255,.12);
   --accent-dark:#0a0a0a;
+  /* «свободно» и позитивные статусы — фирменный chrome, без кислотного зелёного */
+  --status-ok:rgba(255,255,255,.88);
+  --status-warn:#fbbf24;
   --green:#4ade80;
   --green-dim:rgba(74,222,128,.12);
   --red:#f87171;
@@ -36,14 +39,16 @@
   --shadow:0 12px 48px rgba(0,0,0,.65);
   --glow:0 0 60px rgba(255,255,255,.08);
 }
+html{min-height:100%;background:#030306}
 html,body{min-height:100%;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,sans-serif;
-  background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent;
+  color:var(--text);-webkit-tap-highlight-color:transparent;
   -webkit-font-smoothing:antialiased}
-body{padding-bottom:env(safe-area-inset-bottom,20px);position:relative}
+/* Прозрачный body — иначе непрозрачный слой перекрывает fixed-backdrop с LineWaves (z-index < 0 уходит под фон root) */
+body{background:transparent;padding-bottom:env(safe-area-inset-bottom,20px);position:relative}
 
 /* ── Backdrop: база под WebGL LineWaves ── */
 .chrome-backdrop{
-  position:fixed;inset:0;z-index:-2;pointer-events:none;
+  position:fixed;inset:0;z-index:0;pointer-events:none;
   background:#030306;overflow:hidden;
 }
 .line-waves-root{
@@ -51,7 +56,8 @@ body{padding-bottom:env(safe-area-inset-bottom,20px);position:relative}
   opacity:1;
 }
 
-.screen{display:none;padding:20px;max-width:480px;margin:0 auto;animation:fadeUp .35s cubic-bezier(.16,1,.3,1)}
+.screen{display:none;padding:20px;max-width:480px;margin:0 auto;animation:fadeUp .35s cubic-bezier(.16,1,.3,1);
+  position:relative;z-index:1}
 .screen.active{display:block}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
@@ -150,7 +156,7 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 .day-card .dd{font-size:22px;font-weight:800}
 .day-card .mo{font-size:10px;color:var(--dim);margin-top:2px}
 .day-card .free{font-size:10px;margin-top:6px;font-weight:600}
-.day-card .free.has{color:var(--green)}
+.day-card .free.has{color:var(--status-ok)}
 .day-card .free.no{color:var(--red)}
 
 /* ── Slots ── */
@@ -191,8 +197,8 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .svc-total .p{font-weight:800;font-size:18px;color:var(--text)}
 .price-home{margin-top:18px;padding:16px;border-radius:var(--r);
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
 .price-home .ph-row{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;
   border-bottom:1px solid var(--border);color:var(--text2)}
 .price-home .ph-row:last-child{border-bottom:none}
@@ -200,7 +206,7 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 .legend{display:flex;gap:16px;margin:14px 0;font-size:11px;color:var(--dim);font-weight:500}
 .legend span::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;
   margin-right:5px;vertical-align:middle}
-.legend .l-free::before{background:var(--green)}
+.legend .l-free::before{background:rgba(255,255,255,.55)}
 .legend .l-busy::before{background:var(--red)}
 .legend .l-off::before{background:var(--dim2)}
 
@@ -208,8 +214,8 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 .form-group{margin-bottom:16px}
 .form-group label{display:block;font-size:13px;color:var(--dim);margin-bottom:8px;font-weight:600}
 .form-group input{width:100%;padding:14px 16px;border-radius:var(--r);border:1px solid rgba(255,255,255,.15);
-  background:rgba(0,0,0,.35);color:var(--text);font-size:15px;outline:none;transition:all .25s;
-  box-shadow:inset 0 2px 4px rgba(0,0,0,.35)}
+  background:rgba(255,255,255,.06);color:var(--text);font-size:15px;outline:none;transition:all .25s;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.2)}
 .form-group input:focus{border-color:rgba(255,255,255,.45);box-shadow:0 0 0 3px rgba(255,255,255,.08),inset 0 2px 4px rgba(0,0,0,.2)}
 .form-group input::placeholder{color:var(--dim)}
 
@@ -261,8 +267,8 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
   font-size:14px;font-weight:600;z-index:999;transform:translateY(120px);opacity:0;
   transition:all .35s cubic-bezier(.16,1,.3,1);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .toast.show{transform:none;opacity:1}
-.toast.ok{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.2);
-  box-shadow:0 8px 32px rgba(52,211,153,.1)}
+.toast.ok{background:rgba(255,255,255,.1);color:#e5e5e5;border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 8px 32px rgba(0,0,0,.25)}
 .toast.err{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.2);
   box-shadow:0 8px 32px rgba(248,113,113,.1)}
 
@@ -333,11 +339,11 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 /* ── Home shell ── */
 .home-shell{
   position:relative;isolation:isolate;border-radius:var(--r3);
-  background:rgba(255,255,255,.03);
-  border:1px solid rgba(255,255,255,.1);
-  -webkit-backdrop-filter:blur(20px);
-  backdrop-filter:blur(20px);
-  box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.06);
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.14);
+  -webkit-backdrop-filter:blur(18px) saturate(1.1);
+  backdrop-filter:blur(18px) saturate(1.1);
+  box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.08);
   margin-bottom:18px;overflow:hidden;
   min-height:120px;
 }
@@ -348,7 +354,7 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 }
 .home-scroll::-webkit-scrollbar{display:none}
 .pixel-trail-canvas{
-  position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:.9;
+  position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;opacity:.5;
 }
 
 /* ── Gooey CTA (SVG filter, inspired by GooeyNav / PixelTrail goo) ── */
@@ -356,10 +362,10 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 .gooey-dock-wrap{padding:4px 0 6px;filter:url(#gooey-cta);margin-top:8px}
 .gooey-pair{
   display:flex;gap:12px;padding:10px 12px;border-radius:24px;
-  background:linear-gradient(165deg, rgba(32,32,38,.75), rgba(12,12,16,.9));
-  border:1px solid rgba(255,255,255,.22);
-  box-shadow:0 8px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.1);
-  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  background:linear-gradient(165deg, rgba(255,255,255,.1), rgba(12,12,18,.42));
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 8px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
 }
 .gooey-btn{
   flex:1;border:none;border-radius:22px;padding:15px 16px;font-size:15px;font-weight:700;cursor:pointer;
@@ -392,7 +398,7 @@ button.hero-pill:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-of
 .services-scroll::-webkit-scrollbar{display:none}
 .services-fade{
   position:absolute;left:0;right:0;bottom:0;height:4.5rem;pointer-events:none;z-index:3;
-  background:linear-gradient(to top, #000 10%, rgba(0,0,0,0) 100%);
+  background:linear-gradient(to top, rgba(3,3,8,.92) 0%, rgba(3,3,8,0) 100%);
 }
 
 </style>
